@@ -7,3 +7,6 @@ infra/terraform/*.tfstate*
 infra/terraform/terraform.tfvars
 *.zip
 .DS_Store
+
+# Generated demo data (recreate with `make generate`)
+data/generated/

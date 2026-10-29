@@ -46,9 +46,9 @@ Reject rate %                    Stock coverage (days)       Throughput vs plan 
 ### How it arrives
 | Source | Pattern | Volume in the demo |
 |---|---|---|
-| Station and warehouse scanners | **Event stream** → Kinesis Data Streams (one event per scan) | ~3,000 live events in a 10-minute session |
-| Event history (7 days) | Backfill written straight to S3 raw (as if Firehose had delivered it) | ~120,000 events |
-| Reference data: parts, suppliers, production plan | Small CSV files in S3 (master data from the ERP) | 12 parts, 4 suppliers, hourly plan per line |
+| Station and warehouse scanners | **Event stream** → Kinesis Data Streams (one event per scan) | ~1,000 live events (06:00–09:00 plant time) streamed over ~10 minutes |
+| Event history (7 days) | Backfill written straight to S3 raw (as if Firehose had delivered it) | ~53,000 events (2 plants × 3 lines × 24 h × 7 days) |
+| Reference data: parts, suppliers, production plan | Small CSV files in S3 (master data from the ERP) | 11 parts, 4 suppliers, hourly plan per line |
 
 ### Event types (one schema, `event_type` decides which fields matter)
 | `event_type` | Meaning | Key fields |
@@ -81,9 +81,9 @@ Reject rate %                    Stock coverage (days)       Throughput vs plan 
 - **Bad records:** unknown part, negative quantity, missing fields. Reject them to an error location, never silently drop them.
 
 ### The story built into the data (so the demo shows real findings)
-1. **Supplier VOLTEX lot LOT-7781** has a defect: reject rate on BATTERY-A12 jumps from ~1% to ~8% at the stations that use it. Most rejects are coded `SUPPLIER_DEFECT`.
-2. **CONNECTOR-C4** is consumed faster than planned and its next delivery is late, so stock coverage drops below 1 day during the live session.
-3. **LINE-3** runs ~12% behind plan on the night shift (a process issue, not a supplier one).
+1. **Supplier VOLTEX lot LOT-7781** has a defect: reject rate on BATTERY-A12 at Monterrey jumps from ~1.2% to ~10% once the lot reaches the stations (FIFO: older stock is used first), pushing the ASSEMBLY-3 stations above 3% per hour in the live session. Most rejects are coded `SUPPLIER_DEFECT`.
+2. **CONNECTOR-C4** is consumed faster than planned and its next delivery is late, so the live session starts at ~1.05 days of coverage and drops below 1 day around 06:50 plant time.
+3. **LINE-3** runs ~11% behind plan on the night shift (89% of plan) (a process issue, not a supplier one).
 
 ## 4. Design
 
@@ -114,7 +114,7 @@ Reject rate %                    Stock coverage (days)       Throughput vs plan 
 
 | Service | Unit price (us-east-1) | Usage during the demo | Estimate |
 |---|---|---|---|
-| Kinesis Data Streams | $0.015 per shard-hour + $0.014 per million PUT units | 1 shard × 2 h; ~3,000 records | $0.03 |
+| Kinesis Data Streams | $0.015 per shard-hour + $0.014 per million PUT units | 1 shard × 2 h; ~1,000 records | $0.03 |
 | Lambda | $0.20 per million requests + compute | a few hundred invocations | ~$0.00 (free tier) |
 | DynamoDB on-demand | ~$1.25 per million writes | ~10,000 writes | $0.02 |
 | SNS email | first 1,000 emails free | ~10 emails | $0.00 |

@@ -4,7 +4,7 @@ pythonpath = ["."]  # lets tests import src.* the same way locally and in CI
 
 [tool.ruff]
 line-length = 120
-target-version = "py312"
+target-version = "py310"  # Glue 4.0 runs Python 3.10; Lambda code stays compatible
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
