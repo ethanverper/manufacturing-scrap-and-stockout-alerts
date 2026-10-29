@@ -1,0 +1,122 @@
+# =============================================================================
+# config/settings.yaml — every tunable value of the project, in one place.
+#
+# Who reads it:
+#   - Python (generators, scripts) through src/common/settings.py
+#   - Terraform through yamldecode(file(...)), which passes the values to the Lambda
+#     (environment variables) and the Glue job (job arguments)
+#   So a threshold changed here reaches every component on the next deploy.
+#
+# What does NOT belong here:
+#   - Master data (suppliers, parts, costs, bill of materials) -> config/master_data.yaml
+#   - Protocol constants nobody should tune (event types, AWS API limits) -> stay in code
+# =============================================================================
+
+project:
+  name: manufacturing-scrap-and-stockout-alerts
+  region: us-east-1
+  # Both plants are in Mexico: UTC-6 all year (no daylight saving since 2022)
+  plant_utc_offset_hours: -6
+
+# -----------------------------------------------------------------------------
+# Business rules: alert thresholds (docs/kpi-dictionary.md explains each one)
+# -----------------------------------------------------------------------------
+alerts:
+  # Reject rate alert, per station, over the current clock hour
+  reject_rate_threshold_pct: 3.0      # alert above this percentage
+  reject_rate_min_units: 20           # ignore hours with fewer units handled (avoids 1-of-5 = 20% false alarms)
+  # Stock coverage alert, per plant and part
+  stock_coverage_threshold_days: 1.0  # alert below this many days of planned usage
+
+# -----------------------------------------------------------------------------
+# Plant layout and production plan
+# -----------------------------------------------------------------------------
+plant:
+  plants: [PLANT-MTY, PLANT-SLP]
+  lines: [LINE-1, LINE-2, LINE-3]
+  # Stations on every line, in the order a unit travels through them
+  station_types: [ASSEMBLY-1, ASSEMBLY-2, ASSEMBLY-3]
+  units_per_batch: 5                  # finished units per batch
+  batches_per_hour: 4                 # -> planned 20 units per line per hour
+  hours_per_day: 24                   # three 8-hour shifts, around the clock
+  # Shift start hours, plant local time (night crosses midnight)
+  shift_start_hours:
+    MORNING: 6
+    EVENING: 14
+    NIGHT: 22
+  delivery_hour: 7                    # trucks unload at 07:00 local
+  pallet_size: 100                    # deliveries are rounded up to full pallets
+  first_lot_number: 7000              # lot ids start at LOT-7001
+
+# -----------------------------------------------------------------------------
+# Simulation: normal behavior, the planted incidents, scanner noise
+# -----------------------------------------------------------------------------
+simulation:
+  seed: 42                            # same seed -> same events (history and live must match)
+  history_days: 7
+
+  # Normal plant behavior
+  baseline_supplier_defect_rate: 0.008  # share of parts that arrive defective
+  baseline_process_defect_rate: 0.004   # share of parts a station damages
+
+  # The three incidents (docs/spec.md, "The story built into the data").
+  # Day offsets count back from the end of the history: 1 = last history day.
+  incidents:
+    bad_lot:
+      plant: PLANT-MTY
+      part: BATTERY-A12
+      lot_id: LOT-7781
+      received_days_before_end: 3     # older stock is used first (FIFO), so it reaches the stations later
+      supplier_defect_rate: 0.15
+    shortage:
+      plant: PLANT-MTY
+      part: CONNECTOR-C4
+      starts_days_before_end: 1       # extra usage + missed deliveries from the last history day on
+      usage_multiplier: 1.25          # rework: 25% more connectors than the BOM says
+    line_behind:
+      line: LINE-3
+      shift: NIGHT
+      lost_capacity: 0.12             # share of night batches that don't run
+
+  # Data problems real scanners produce (the pipeline must handle them)
+  noise:
+    history:
+      duplicate_rate: 0.01            # retries after a network timeout (same event_id)
+      invalid_rate: 0.001             # corrupted scans (negative quantity, unknown part, missing plant)
+    live:
+      duplicate_rate: 0.02
+      invalid_rate: 0.003
+
+  # The live session streamed to Kinesis: the morning after the history
+  live_session:
+    start_hour: 6                     # plant local time
+    end_hour: 9                       # exclusive: 06:00-08:59
+    wall_clock_minutes: 10            # how long the streaming takes in real time
+
+# -----------------------------------------------------------------------------
+# AWS sizing and timings (read by Terraform; cheap defaults, see docs/spec.md section 5)
+# -----------------------------------------------------------------------------
+aws:
+  kinesis:
+    shard_count: 1                    # 1 MB/s or 1,000 records/s in: plenty for the demo
+    retention_hours: 24               # replay window
+  lambda:
+    batch_size: 100                   # records per invocation
+    max_batching_window_seconds: 5
+    timeout_seconds: 30
+    memory_mb: 256
+    log_retention_days: 1
+  dynamodb:
+    events_seen_ttl_days: 2           # idempotency window for scanner retries
+  firehose:
+    buffer_size_mb: 1
+    buffer_interval_seconds: 60
+  glue:
+    worker_type: G.1X
+    number_of_workers: 2
+    timeout_minutes: 10               # stops a runaway job (and its bill)
+    schedule_cron: "cron(0 7 * * ? *)" # 07:00 UTC = 01:00 plant time
+    schedule_enabled: false           # off by default: a forgotten schedule keeps billing
+  athena:
+    bytes_scanned_cutoff_per_query: 1073741824  # 1 GB per query, then Athena cancels it
+    results_expiration_days: 7

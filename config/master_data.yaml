@@ -1,0 +1,40 @@
+# =============================================================================
+# config/master_data.yaml — the plants' master data (what an ERP would hold).
+#
+# Who reads it: src/generators/reference.py, which derives planned usage and exports
+# these tables as CSV to s3://<bucket>/reference/ for the Glue job.
+# =============================================================================
+
+# Companies that ship parts to the plants
+suppliers:
+  SUP-VOLTEX: Voltex Energy          # batteries
+  SUP-NORDCAB: Nordcab Wiring        # cables, harnesses, connectors
+  SUP-PRECISA: Precisa Motion        # motors, controllers, sensors
+  SUP-ANDINA: Andina Metals          # housings, brackets, seals, screws
+
+# Purchased parts
+#   supplier             who ships it (one supplier per part)
+#   unit_cost            purchase price in USD: turns rejected units into scrap cost
+#   delivery_every_days  1 = a truck every day, 2 = every other day
+#   target_coverage_days each delivery refills stock up to this many days of planned usage
+parts:
+  # Expensive, slow-moving: every other day, larger buffer
+  BATTERY-A12:   {supplier: SUP-VOLTEX,  unit_cost: 185.00, delivery_every_days: 2, target_coverage_days: 4.0}
+  MOTOR-M7:      {supplier: SUP-PRECISA, unit_cost: 310.00, delivery_every_days: 2, target_coverage_days: 4.0}
+  CONTROLLER-K1: {supplier: SUP-PRECISA, unit_cost: 155.00, delivery_every_days: 2, target_coverage_days: 4.0}
+  # Wiring and electronics: daily
+  HARNESS-H2:    {supplier: SUP-NORDCAB, unit_cost: 42.00,  delivery_every_days: 1, target_coverage_days: 3.0}
+  CONNECTOR-C4:  {supplier: SUP-NORDCAB, unit_cost: 3.50,   delivery_every_days: 1, target_coverage_days: 3.0}
+  CABLE-C9:      {supplier: SUP-NORDCAB, unit_cost: 6.00,   delivery_every_days: 1, target_coverage_days: 3.0}
+  SENSOR-S3:     {supplier: SUP-PRECISA, unit_cost: 28.00,  delivery_every_days: 1, target_coverage_days: 3.0}
+  # Cheap mechanical parts: daily
+  HOUSING-X1:    {supplier: SUP-ANDINA,  unit_cost: 22.00,  delivery_every_days: 1, target_coverage_days: 3.0}
+  BRACKET-B5:    {supplier: SUP-ANDINA,  unit_cost: 4.00,   delivery_every_days: 1, target_coverage_days: 3.0}
+  SEAL-S2:       {supplier: SUP-ANDINA,  unit_cost: 1.20,   delivery_every_days: 1, target_coverage_days: 3.0}
+  SCREW-KIT-K8:  {supplier: SUP-ANDINA,  unit_cost: 0.80,   delivery_every_days: 1, target_coverage_days: 3.0}
+
+# Bill of materials: parts each station type installs per finished unit
+station_bom:
+  ASSEMBLY-1: {HOUSING-X1: 1, BRACKET-B5: 2, SEAL-S2: 2, SCREW-KIT-K8: 1}
+  ASSEMBLY-2: {HARNESS-H2: 1, CONNECTOR-C4: 4, CABLE-C9: 3, SENSOR-S3: 2}
+  ASSEMBLY-3: {BATTERY-A12: 1, MOTOR-M7: 1, CONTROLLER-K1: 1}

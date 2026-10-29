@@ -26,19 +26,24 @@ from typing import Any
 
 from src.common.aws import get_client
 from src.common.logging_utils import get_logger
+from src.common.settings import settings
 from src.generators.history import default_end_day
 from src.generators.simulator import PlantSimulator, add_scanner_noise
 
 logger = get_logger(__name__)
 
+# Simulation settings from config/settings.yaml (section "simulation")
+_SIMULATION = settings()["simulation"]
+_SESSION = _SIMULATION["live_session"]
+
 # The live session covers the start of the morning shift, plant local time
-LIVE_HOURS = range(6, 9)
+LIVE_HOURS = range(_SESSION["start_hour"], _SESSION["end_hour"])
 
-# Live noise: 1 retry in 50, and a few corrupted scans to exercise the Lambda's validation
-LIVE_DUPLICATE_RATE: float = 0.02
-LIVE_INVALID_RATE: float = 0.003
+# Live noise: more retries than the history, and a few corrupted scans for the Lambda's validation
+LIVE_DUPLICATE_RATE: float = _SIMULATION["noise"]["live"]["duplicate_rate"]
+LIVE_INVALID_RATE: float = _SIMULATION["noise"]["live"]["invalid_rate"]
 
-# Kinesis PutRecords limits: at most 500 records and 5 MB per call (we stay under 4.5 MB)
+# Protocol constants (not settings): Kinesis PutRecords accepts at most 500 records and 5 MB per call
 MAX_RECORDS_PER_CALL: int = 500
 MAX_BYTES_PER_CALL: int = 4_500_000
 
@@ -182,10 +187,14 @@ def main(argv: list[str] | None = None) -> None:
     """Command-line entry point: build the live session and stream it (or write it locally)."""
     parser = argparse.ArgumentParser(description="Stream the live plant session to Kinesis.")
     parser.add_argument("--stream", help="Kinesis stream name (required unless --dry-run)")
-    parser.add_argument("--minutes", type=float, default=10, help="wall-clock duration of the session")
-    parser.add_argument("--days", type=int, default=7, help="history days (must match history.py)")
+    parser.add_argument(
+        "--minutes", type=float, default=_SESSION["wall_clock_minutes"], help="wall-clock duration of the session"
+    )
+    parser.add_argument(
+        "--days", type=int, default=_SIMULATION["history_days"], help="history days (must match history.py)"
+    )
     parser.add_argument("--end-day", type=date.fromisoformat, default=None, help="last history day (default yesterday)")
-    parser.add_argument("--seed", type=int, default=42, help="random seed (must match history.py)")
+    parser.add_argument("--seed", type=int, default=_SIMULATION["seed"], help="random seed (must match history.py)")
     parser.add_argument("--dry-run", action="store_true", help="write events to --out instead of Kinesis")
     parser.add_argument("--out", type=Path, default=Path("data/generated/live_events.jsonl"))
     args = parser.parse_args(argv)

@@ -9,11 +9,12 @@ Every repository in this portfolio follows the same rules, so any reader (recrui
 - **One responsibility per module and per function.** If a function needs "and" to describe it, split it.
 - **Small functions** (roughly under 30 lines). Orchestration functions only call other functions; they don't hold business logic.
 - **Business logic is pure and testable**: parsing, KPI math and rules live in plain functions with no AWS calls. AWS clients are created in one place (`src/common/aws.py`) and passed in or lazily created, so tests never touch the cloud.
-- **No magic numbers or strings.** Thresholds, table names and prefixes live in a config module or environment variables, with names that explain them (`SAFETY_STOCK_UNITS = 50`).
+- **No magic numbers or strings.** Every tunable value lives in `config/settings.yaml` (see section 2b), with a name and a comment that explain it.
 - **Python layout:**
   ```
+  config/          settings.yaml (every tunable value) · master_data.yaml (reference data)
   src/
-    common/        shared helpers: config, logging, AWS clients
+    common/        shared helpers: settings (YAML), config (env vars), logging, AWS clients
     generators/    synthetic data producers
     lambdas/<fn>/  one folder per Lambda: handler.py (thin) + logic modules
     glue_jobs/     one file per job: extract() / transform() / load() + main()
@@ -21,6 +22,12 @@ Every repository in this portfolio follows the same rules, so any reader (recrui
   ```
 - **Terraform layout:** numbered files, one per pipeline stage (`0_main.tf`, `1_ingestion.tf`, …), plus `variables.tf` and `outputs.tf`. Resource names follow `${var.project}-<component>`.
 - **SQL:** one query per KPI or business question in `sql/`, named `NN_<question>.sql`.
+
+## 2b. Configuration: one place for every value
+- **`config/settings.yaml`** holds every tunable value: alert thresholds, business rules, simulation parameters, AWS sizing and timings. It is commented section by section.
+- **`config/master_data.yaml`** (when the project has reference data) holds the master data: suppliers, products, costs, hierarchies.
+- **Python** reads them only through `src/common/settings.py`. **Terraform** reads the same files with `yamldecode(file(...))` and passes the values to Lambda (environment variables) and Glue (job arguments). Code running in AWS reads those through `src/common/config.py`. One source of truth, so components can never disagree.
+- **What stays in code:** only protocol constants that nobody should tune, such as the event schema, event types and AWS API limits (for example, 500 records per PutRecords call). Each one sits next to the code that depends on it, with a comment saying why it's fixed.
 
 ## 3. Comments and documentation
 The goal is that the code reads like a guided explanation, not a wall of code.

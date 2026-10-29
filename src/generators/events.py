@@ -18,6 +18,8 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
 
+from src.common.settings import settings
+
 # Event types: what happened at the scanner
 CONSUMED = "CONSUMED"  # a station installed parts
 REJECTED = "REJECTED"  # parts failed inspection and were scrapped
@@ -34,8 +36,9 @@ REASON_CODES: tuple[str, ...] = (SUPPLIER_DEFECT, PROCESS_DEFECT)
 WAREHOUSE = "WAREHOUSE"
 END_OF_LINE = "END-OF-LINE"
 
-# Both plants are in Mexico (UTC-6 all year since 2022). Fixed offset: no daylight-saving surprises.
-PLANT_TZ = timezone(timedelta(hours=-6))
+# Plant local time zone (config/settings.yaml -> project.plant_utc_offset_hours).
+# A fixed offset: the plants are in Mexico, UTC-6 all year, so there are no daylight-saving surprises.
+PLANT_TZ = timezone(timedelta(hours=settings()["project"]["plant_utc_offset_hours"]))
 
 
 def to_utc_iso(local_time: datetime) -> str:

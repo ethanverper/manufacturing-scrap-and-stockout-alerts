@@ -25,6 +25,7 @@ from collections import deque
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 
+from src.common.settings import settings
 from src.generators import story
 from src.generators.events import (
     CONSUMED,
@@ -51,14 +52,17 @@ from src.generators.reference import (
     station_id,
 )
 
-# Trucks arrive once a day at 07:00 plant local time
-DELIVERY_HOUR: int = 7
+# Logistics settings from config/settings.yaml (section "plant")
+_PLANT = settings()["plant"]
 
-# Deliveries are rounded up to full pallets of 100 units
-PALLET_SIZE: int = 100
+# Trucks arrive once a day at this local hour
+DELIVERY_HOUR: int = _PLANT["delivery_hour"]
+
+# Deliveries are rounded up to full pallets
+PALLET_SIZE: int = _PLANT["pallet_size"]
 
 # Lot numbers start here; each new delivery takes the next number
-FIRST_LOT_NUMBER: int = 7000
+FIRST_LOT_NUMBER: int = _PLANT["first_lot_number"]
 
 
 @dataclass

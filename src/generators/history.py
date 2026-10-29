@@ -28,15 +28,19 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from src.common.logging_utils import get_logger
+from src.common.settings import settings
 from src.generators import reference
 from src.generators.events import PLANT_TZ
 from src.generators.simulator import PlantSimulator, add_scanner_noise
 
 logger = get_logger(__name__)
 
-# Scanner noise in the history: 1% retries (duplicates), 0.1% corrupted scans
-HISTORY_DUPLICATE_RATE: float = 0.01
-HISTORY_INVALID_RATE: float = 0.001
+# Simulation settings from config/settings.yaml (section "simulation")
+_SIMULATION = settings()["simulation"]
+
+# Scanner noise in the history: retries (duplicates) and corrupted scans
+HISTORY_DUPLICATE_RATE: float = _SIMULATION["noise"]["history"]["duplicate_rate"]
+HISTORY_INVALID_RATE: float = _SIMULATION["noise"]["history"]["invalid_rate"]
 
 
 def default_end_day() -> date:
@@ -124,9 +128,9 @@ def main(argv: list[str] | None = None) -> None:
     """Command-line entry point: simulate the history and write everything to `--out`."""
     # Command-line options, with defaults that match the spec
     parser = argparse.ArgumentParser(description="Write the plant event history and master data.")
-    parser.add_argument("--days", type=int, default=7, help="history days (default 7)")
+    parser.add_argument("--days", type=int, default=_SIMULATION["history_days"], help="history days")
     parser.add_argument("--end-day", type=date.fromisoformat, default=None, help="last history day (default yesterday)")
-    parser.add_argument("--seed", type=int, default=42, help="random seed (must match live.py)")
+    parser.add_argument("--seed", type=int, default=_SIMULATION["seed"], help="random seed (must match live.py)")
     parser.add_argument("--out", type=Path, default=Path("data/generated"), help="output folder")
     args = parser.parse_args(argv)
 

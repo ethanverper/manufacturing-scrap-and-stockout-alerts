@@ -6,9 +6,10 @@ Where it sits in the pipeline:
     `history.py` exports it as CSV files to `s3://<bucket>/reference/`, where the Glue job
     reads it to enrich events (unit cost, planned usage, planned units).
 
-Why it is code and not hand-written CSVs:
-    Planned usage, the plan and the BOM must agree with each other. Deriving everything from
-    one set of constants guarantees that, and lets tests check the numbers.
+Where the values live:
+    The numbers themselves are in config/settings.yaml (plant layout) and config/master_data.yaml
+    (suppliers, parts, BOM). This module turns them into typed objects and derives the values that
+    must agree with each other (planned usage, the hourly plan), so tests can check them.
 """
 
 from __future__ import annotations
@@ -16,32 +17,36 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
+from src.common.settings import master_data, settings
+
 # ---------------------------------------------------------------------------
-# Plant layout
+# Plant layout (values come from config/settings.yaml, section "plant")
 # ---------------------------------------------------------------------------
+
+_PLANT = settings()["plant"]
 
 # Two plants so the "Plant" level of every KPI hierarchy has something to compare
-PLANTS: tuple[str, ...] = ("PLANT-MTY", "PLANT-SLP")
+PLANTS: tuple[str, ...] = tuple(_PLANT["plants"])
 
-# Every plant runs the same three assembly lines
-LINES: tuple[str, ...] = ("LINE-1", "LINE-2", "LINE-3")
+# Every plant runs the same assembly lines
+LINES: tuple[str, ...] = tuple(_PLANT["lines"])
 
 # Station types on every line, in the order a unit travels through them
-STATION_TYPES: tuple[str, ...] = ("ASSEMBLY-1", "ASSEMBLY-2", "ASSEMBLY-3")
+STATION_TYPES: tuple[str, ...] = tuple(_PLANT["station_types"])
 
-# The line moves in batches: 5 finished units per batch, 4 batches per hour
-UNITS_PER_BATCH: int = 5
-BATCHES_PER_HOUR: int = 4
+# The line moves in batches of finished units, a fixed number of batches per hour
+UNITS_PER_BATCH: int = _PLANT["units_per_batch"]
+BATCHES_PER_HOUR: int = _PLANT["batches_per_hour"]
 
-# The production plan: what each line is expected to produce every hour (20 units)
+# The production plan: what each line is expected to produce every hour
 PLANNED_UNITS_PER_HOUR: int = UNITS_PER_BATCH * BATCHES_PER_HOUR
 
 # Lines run around the clock (three 8-hour shifts)
-HOURS_PER_DAY: int = 24
+HOURS_PER_DAY: int = _PLANT["hours_per_day"]
 
 
 # ---------------------------------------------------------------------------
-# Suppliers and parts
+# Suppliers and parts (values come from config/master_data.yaml)
 # ---------------------------------------------------------------------------
 
 
@@ -72,35 +77,28 @@ class Part:
     target_coverage_days: float
 
 
+_MASTER = master_data()
+
+# Supplier id -> Supplier
 SUPPLIERS: dict[str, Supplier] = {
-    "SUP-VOLTEX": Supplier("SUP-VOLTEX", "Voltex Energy"),  # batteries
-    "SUP-NORDCAB": Supplier("SUP-NORDCAB", "Nordcab Wiring"),  # cables, harnesses, connectors
-    "SUP-PRECISA": Supplier("SUP-PRECISA", "Precisa Motion"),  # motors, controllers, sensors
-    "SUP-ANDINA": Supplier("SUP-ANDINA", "Andina Metals"),  # housings, brackets, seals, screws
+    supplier_id: Supplier(supplier_id, name) for supplier_id, name in _MASTER["suppliers"].items()
 }
 
+# Part id -> Part, with numbers converted to the right types
 PARTS: dict[str, Part] = {
-    # Expensive, slow-moving parts: delivered every other day, larger safety buffer
-    "BATTERY-A12": Part("BATTERY-A12", "SUP-VOLTEX", 185.00, 2, 4.0),
-    "MOTOR-M7": Part("MOTOR-M7", "SUP-PRECISA", 310.00, 2, 4.0),
-    "CONTROLLER-K1": Part("CONTROLLER-K1", "SUP-PRECISA", 155.00, 2, 4.0),
-    # Wiring and electronics: delivered daily
-    "HARNESS-H2": Part("HARNESS-H2", "SUP-NORDCAB", 42.00, 1, 3.0),
-    "CONNECTOR-C4": Part("CONNECTOR-C4", "SUP-NORDCAB", 3.50, 1, 3.0),
-    "CABLE-C9": Part("CABLE-C9", "SUP-NORDCAB", 6.00, 1, 3.0),
-    "SENSOR-S3": Part("SENSOR-S3", "SUP-PRECISA", 28.00, 1, 3.0),
-    # Cheap mechanical parts: delivered daily
-    "HOUSING-X1": Part("HOUSING-X1", "SUP-ANDINA", 22.00, 1, 3.0),
-    "BRACKET-B5": Part("BRACKET-B5", "SUP-ANDINA", 4.00, 1, 3.0),
-    "SEAL-S2": Part("SEAL-S2", "SUP-ANDINA", 1.20, 1, 3.0),
-    "SCREW-KIT-K8": Part("SCREW-KIT-K8", "SUP-ANDINA", 0.80, 1, 3.0),
+    part_id: Part(
+        part_id=part_id,
+        supplier_id=spec["supplier"],
+        unit_cost=float(spec["unit_cost"]),
+        delivery_every_days=int(spec["delivery_every_days"]),
+        target_coverage_days=float(spec["target_coverage_days"]),
+    )
+    for part_id, spec in _MASTER["parts"].items()
 }
 
 # Bill of materials: parts each station type installs per finished unit
 STATION_BOM: dict[str, dict[str, int]] = {
-    "ASSEMBLY-1": {"HOUSING-X1": 1, "BRACKET-B5": 2, "SEAL-S2": 2, "SCREW-KIT-K8": 1},
-    "ASSEMBLY-2": {"HARNESS-H2": 1, "CONNECTOR-C4": 4, "CABLE-C9": 3, "SENSOR-S3": 2},
-    "ASSEMBLY-3": {"BATTERY-A12": 1, "MOTOR-M7": 1, "CONTROLLER-K1": 1},
+    station_type: dict(bom) for station_type, bom in _MASTER["station_bom"].items()
 }
 
 

@@ -21,18 +21,23 @@ from __future__ import annotations
 import random
 from dataclasses import dataclass
 
+from src.common.settings import settings
+
 # ---------------------------------------------------------------------------
 # Normal plant behavior (the baseline every incident is compared against)
 # ---------------------------------------------------------------------------
 
+# All values come from config/settings.yaml (sections "simulation" and "plant")
+_SIMULATION = settings()["simulation"]
+
 # Share of parts that arrive defective from any supplier on a normal day
-BASELINE_SUPPLIER_DEFECT_RATE: float = 0.008
+BASELINE_SUPPLIER_DEFECT_RATE: float = _SIMULATION["baseline_supplier_defect_rate"]
 
 # Share of parts a station damages on a normal day (handling, wrong torque, etc.)
-BASELINE_PROCESS_DEFECT_RATE: float = 0.004
+BASELINE_PROCESS_DEFECT_RATE: float = _SIMULATION["baseline_process_defect_rate"]
 
-# Plant shifts by local start hour: morning 06-14, evening 14-22, night 22-06
-SHIFT_START_HOURS: dict[str, int] = {"MORNING": 6, "EVENING": 14, "NIGHT": 22}
+# Plant shifts by local start hour: morning, evening, and night (crossing midnight)
+SHIFT_START_HOURS: dict[str, int] = dict(settings()["plant"]["shift_start_hours"])
 
 
 # ---------------------------------------------------------------------------
@@ -82,28 +87,33 @@ def build_incidents(history_days: int) -> tuple[BadLot, Shortage, LineBehind]:
     Returns:
         (bad_lot, shortage, line_behind).
     """
-    # 1. Voltex lot LOT-7781 arrives at Monterrey 3 days before the end of the history.
-    #    Older battery stock is used first (FIFO), so the bad lot reaches the stations about a
-    #    day later and is still in use during the live session.
+    # The incident definitions (plants, parts, rates) are in config/settings.yaml
+    incidents = _SIMULATION["incidents"]
+
+    # 1. A bad supplier lot arrives a few days before the end of the history. Older stock is used
+    #    first (FIFO), so it reaches the stations later and is still in use in the live session.
+    lot = incidents["bad_lot"]
     bad_lot = BadLot(
-        plant="PLANT-MTY",
-        part="BATTERY-A12",
-        lot_id="LOT-7781",
-        received_on_day=max(history_days - 3, 0),
-        supplier_defect_rate=0.15,
+        plant=lot["plant"],
+        part=lot["part"],
+        lot_id=lot["lot_id"],
+        received_on_day=max(history_days - lot["received_days_before_end"], 0),
+        supplier_defect_rate=lot["supplier_defect_rate"],
     )
 
-    # 2. Connector C4 at Monterrey: the last history delivery is missed and rework raises usage
-    #    25%, so coverage starts the live session just above 1 day and falls below it
+    # 2. A part's deliveries stop and rework raises its usage, so coverage starts the live session
+    #    just above 1 day and falls below it
+    short = incidents["shortage"]
     shortage = Shortage(
-        plant="PLANT-MTY",
-        part="CONNECTOR-C4",
-        starts_on_day=history_days - 1,
-        usage_multiplier=1.25,
+        plant=short["plant"],
+        part=short["part"],
+        starts_on_day=history_days - short["starts_days_before_end"],
+        usage_multiplier=short["usage_multiplier"],
     )
 
-    # 3. Line 3 loses 12% of its night-shift batches in both plants
-    line_behind = LineBehind(line="LINE-3", shift="NIGHT", lost_capacity=0.12)
+    # 3. One line loses part of its batches on one shift, in both plants
+    behind = incidents["line_behind"]
+    line_behind = LineBehind(line=behind["line"], shift=behind["shift"], lost_capacity=behind["lost_capacity"])
 
     return bad_lot, shortage, line_behind
 
