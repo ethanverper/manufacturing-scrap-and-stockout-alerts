@@ -9,3 +9,10 @@ Decisions that changed because of evidence, while building this project. Each en
 - **Change:** statistical process control. The alert fires when a station is above its **p-chart upper control limit** (`p̄ + 3·√(p̄(1−p̄)/n)`), which adapts to volume (5.4% at 60 parts, 3.5% at 200), plus a 3% floor and at least 4 rejects. See ADR-010 in `docs/decisions.md`.
 - **Result:** **7 alerts in the live session, all 7 on the stations using the defective lot.** Zero false alarms. Over the 7-day history: 66 alerts instead of 863.
 - **Takeaway:** test alert rules against realistic data before deploying them. A threshold is a business decision, and its false-alarm rate is part of that decision.
+
+## 2. Unit tests on pure logic missed a bug that only the real API shape revealed
+- **Assumption:** the DynamoDB update `ADD consumed :quantity` was correct; the pure-logic tests passed.
+- **What the data showed:** running the same code against **moto** (a local simulation of the AWS APIs) failed immediately: `consumed` is a **DynamoDB reserved word**. In AWS, every install event would have failed on the first deploy.
+- **Change:** attribute names go through placeholders (`ADD #counter :quantity` with `ExpressionAttributeNames`). The Lambda's state layer is now always tested against moto: transactions, conditions and reserved words behave like the real service.
+- **Result:** the bug was fixed before any deploy, at no cost. The moto tests also prove end to end that replaying the whole live session (a full Lambda retry) changes no stock and sends no repeated alerts.
+- **Takeaway:** test pure logic with plain unit tests, and the AWS integration against a faithful simulation of the API, before paying for a deploy.

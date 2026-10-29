@@ -116,9 +116,9 @@ Event source mapping: batch size 100, bisect on error, 3 retries, failed batches
 
 | Table | Key | Attributes | Purpose |
 |---|---|---|---|
-| `events_seen` | `event_id` | `expires_at` (TTL, 2 days) | Idempotency guard |
-| `part_stock` | `plant_part` (e.g. `PLANT-MTY#BATTERY-A12`) | `on_hand`, `planned_daily_usage`, `supplier`, `low_stock_alerted_on` | Live stock per part, seeded with opening stock |
-| `station_hourly` | `plant_station` + `hour` (e.g. `2026-10-28T10`) | `consumed`, `rejected`, `alerted` | Counters for the "last hour" reject rate |
+| `events_seen` | `dedupe_key` | `expires_at` (TTL, 2 days) | Idempotency guard: one row per processed `event_id`, and one per alert already sent (`ALERT#<kind>#…`) |
+| `part_stock` | `plant_part` (e.g. `PLANT-MTY#BATTERY-A12`) | `on_hand`, `planned_daily_usage`, `supplier` | Live stock per part, seeded with the end-of-history stock (`scripts/seed_stock.py`) |
+| `station_hourly` | `plant_station` + `hour` (e.g. `2026-10-28T10`) | `consumed`, `rejected`, `expires_at` (TTL, 3 days) | Counters for the current-hour reject rate |
 
 **Why a transaction:** the write is all-or-nothing:
 - **mark `event_id` as seen** (condition: it doesn't exist yet),
@@ -130,7 +130,7 @@ If the event was already processed, the whole transaction is cancelled and nothi
 **Why `ADD`:** stock and counters only change by adding deltas (+received, −consumed, −rejected). Sums don't depend on order, so late events can't corrupt the totals.
 
 ### SNS
-One topic (`alerts`) with email subscriptions. Messages state the rule, the number and the suggested action. Alerts are deduplicated with a flag: one per station-hour for rejects, one per part-day for low stock.
+One topic (`alerts`) with email subscriptions. Messages state the rule, the numbers and the suggested action, and carry the alert kind as a message attribute (for future subscription filters). Alerts are de-duplicated with a conditional write of their key into `events_seen`: one per station-hour for rejects, one per part-day for low stock, even if two invocations race.
 
 ### Data Firehose
 - Reads the same stream, so it is a second consumer independent of the Lambda.

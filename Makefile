@@ -2,7 +2,7 @@ PROJECT ?= $(shell basename $(CURDIR))
 TF := terraform -chdir=infra/terraform
 PYTHON ?= python3
 
-.PHONY: help install test lint fmt generate live-dry deploy demo destroy leftovers cost
+.PHONY: help install test lint fmt generate live-dry seed deploy demo destroy leftovers cost
 
 help: ## List targets
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
@@ -26,6 +26,9 @@ generate: ## Simulate 7 days of plant history + master data into data/generated 
 
 live-dry: ## Write the live session to data/generated/live_events.jsonl instead of Kinesis
 	$(PYTHON) -m src.generators.live --dry-run
+
+seed: ## Load the end-of-history stock into DynamoDB (after deploy, before the live session)
+	$(PYTHON) -m scripts.seed_stock --table $$($(TF) output -raw part_stock_table)
 
 deploy: ## Create the stack (read the cost estimate in docs/spec.md first)
 	$(TF) init -input=false
