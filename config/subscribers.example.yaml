@@ -1,0 +1,33 @@
+# =============================================================================
+# config/subscribers.example.yaml — WHO receives the alerts, and WHICH ones.
+#
+# Copy it to config/subscribers.yaml and put real addresses there. That file is in .gitignore:
+# email addresses never reach the repository.
+#
+# How it works (details in docs/configuration.md):
+#   - Terraform creates one SNS email subscription per entry, with a filter policy built from
+#     `alerts` and `plants`. The Lambda tags every alert with its kind and plant, and SNS delivers
+#     it only to the subscriptions whose filter matches.
+#   - Each address receives an "AWS Notification - Subscription Confirmation" email after
+#     `make deploy`. Nothing arrives until the link in it is clicked.
+#   - To add or remove someone: edit this list, then `make deploy` again.
+#
+# Fields:
+#   email   (required) where the alerts go
+#   role    (required) who this is; documentation only, also used in the subscription name
+#   alerts  (optional) alert kinds to receive: LOW_STOCK, HIGH_REJECT_RATE. Omit = all kinds.
+#   plants  (optional) plants to receive: PLANT-MTY, PLANT-SLP. Omit = all plants.
+# =============================================================================
+
+subscribers:
+  - email: purchasing@example.com
+    role: Purchasing
+    alerts: [LOW_STOCK]
+
+  - email: quality.monterrey@example.com
+    role: Quality Monterrey
+    alerts: [HIGH_REJECT_RATE]
+    plants: [PLANT-MTY]
+
+  - email: plant.manager@example.com
+    role: Plant manager          # no filters: receives every alert from every plant

@@ -1,5 +1,16 @@
-# 0_main.tf: provider, shared settings and the data lake bucket.
-# Add one numbered file per pipeline stage: 1_ingestion.tf, 2_processing.tf, 3_alerts.tf, 4_analytics.tf ...
+# =============================================================================
+# 0_main.tf — provider, the central configuration, and the data lake bucket.
+#
+# The stack is split into one numbered file per pipeline stage, in the order data flows:
+#   0_main.tf             provider, settings (from config/*.yaml), S3 bucket
+#   1_ingestion.tf        Kinesis Data Streams (the scanners send here)
+#   2_realtime.tf         Lambda + DynamoDB + SNS + DLQ (alerts within seconds)
+#   3_landing.tf          Firehose -> S3 raw/                          (level 5)
+#   4_batch.tf            Glue job + schedule                         (level 5)
+#   5_analytics.tf        Glue Catalog tables + Athena workgroup      (level 6)
+#   outputs.tf            names other tools need (Makefile, scripts)
+# Terraform reads every .tf file in this folder as one configuration; the numbers are for humans.
+# =============================================================================
 
 terraform {
   required_version = ">= 1.6"
@@ -9,27 +20,42 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.60"
     }
+    archive = {
+      source  = "hashicorp/archive"
+      version = "~> 2.4"
+    }
   }
 }
 
-variable "project" {
-  description = "Repo name. Tags every resource so its cost can be tracked."
-  type        = string
-  default     = "manufacturing-scrap-and-stockout-alerts"
-}
+# ---------- Central configuration (docs/configuration.md explains every file) ----------
 
-variable "region" {
-  type    = string
-  default = "us-east-1"
+locals {
+  # Every tunable value: thresholds, sizing, timings. The same file the Python code reads.
+  settings = yamldecode(file("${path.module}/../../config/settings.yaml"))
+
+  # Who receives which alerts. Private file (gitignored); without it, no email subscriptions are created.
+  subscribers_file = "${path.module}/../../config/subscribers.yaml"
+  subscribers      = fileexists(local.subscribers_file) ? yamldecode(file(local.subscribers_file)).subscribers : []
+
+  # Short names used everywhere below
+  project = local.settings.project.name
+  aws     = local.settings.aws
+  alerts  = local.settings.alerts
+
+  # Bucket names are global across all AWS accounts: the account id makes ours unique
+  bucket_name = "${local.project}-${data.aws_caller_identity.current.account_id}"
+
+  # Repository root, for packaging code from src/
+  repo_root = "${path.module}/../.."
 }
 
 provider "aws" {
-  region = var.region
+  region = local.settings.project.region
 
-  # Every resource gets these tags -> Cost Explorer can report this project's exact cost.
+  # Every resource gets these tags, so Cost Explorer can report this project's exact cost (make cost)
   default_tags {
     tags = {
-      Project   = var.project
+      Project   = local.project
       ManagedBy = "terraform"
     }
   }
@@ -38,11 +64,7 @@ provider "aws" {
 # Who is running Terraform: used to build a bucket name that is unique per AWS account
 data "aws_caller_identity" "current" {}
 
-locals {
-  bucket_name = "${var.project}-${data.aws_caller_identity.current.account_id}" # unique per account
-}
-
-# ---------- Data lake bucket: raw/ curated/ gold/ scripts/ athena-results/ ----------
+# ---------- Data lake bucket: raw/ curated/ gold/ reference/ scripts/ athena-results/ ----------
 
 # The single bucket that holds every layer of the lake (one prefix per layer)
 resource "aws_s3_bucket" "lake" {
@@ -102,11 +124,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "lake" {
     }
 
     expiration {
-      days = 7
+      days = local.aws.athena.results_expiration_days
     }
   }
-}
-
-output "bucket" {
-  value = aws_s3_bucket.lake.bucket
 }

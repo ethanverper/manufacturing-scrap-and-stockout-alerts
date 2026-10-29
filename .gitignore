@@ -10,3 +10,6 @@ infra/terraform/terraform.tfvars
 
 # Generated demo data (recreate with `make generate`)
 data/generated/
+
+# Real alert subscribers (email addresses): never committed. Template: config/subscribers.example.yaml
+config/subscribers.yaml

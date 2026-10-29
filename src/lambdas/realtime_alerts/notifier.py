@@ -40,8 +40,10 @@ class Notifier:
     def publish(self, alert: Alert) -> str:
         """Send one alert.
 
-        The alert kind travels as a message attribute, so subscriptions can later be filtered
-        (for example, only LOW_STOCK to Purchasing) without changing this code.
+        The alert kind and the plant travel as message attributes. Each SNS subscription has a filter
+        policy on them (config/subscribers.yaml -> Terraform), so every person receives only the
+        alerts they subscribed to, for example only LOW_STOCK, or only HIGH_REJECT_RATE at PLANT-MTY.
+        Adding or removing people never requires changing this code.
 
         Args:
             alert: The alert to send.
@@ -53,6 +55,9 @@ class Notifier:
             TopicArn=self.topic_arn,
             Subject=alert.subject[:MAX_SUBJECT_LENGTH],
             Message=alert.message,
-            MessageAttributes={"kind": {"DataType": "String", "StringValue": alert.kind}},
+            MessageAttributes={
+                "kind": {"DataType": "String", "StringValue": alert.kind},
+                "plant": {"DataType": "String", "StringValue": alert.metrics["plant"]},
+            },
         )
         return response["MessageId"]

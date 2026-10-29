@@ -87,6 +87,8 @@ sequenceDiagram
 - **Code standards:** modular, typed, commented at every step — see [docs/CODING_STANDARDS.md](docs/CODING_STANDARDS.md)
 
 ## 9. Run it
+Full setup, every configuration file and how to change it: [docs/configuration.md](docs/configuration.md).
+
 ```bash
 make install && make test      # local, no AWS
 make deploy                    # creates the stack (see cost below)
@@ -112,7 +114,7 @@ make destroy && make leftovers # tears everything down and checks nothing billab
 
 ## Repository layout
 ```
-docs/              spec, architecture, KPI dictionary, decisions, lessons learned, runbook, coding standards, images
+docs/              spec, architecture, KPI dictionary, decisions, lessons learned, configuration, runbook, coding standards, images
 infra/terraform/   one numbered file per pipeline stage (0_main.tf first)
 src/               common (config, logging, AWS clients), generators, lambdas, glue_jobs
 sql/               one query per KPI

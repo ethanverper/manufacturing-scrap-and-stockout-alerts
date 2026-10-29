@@ -1,8 +1,8 @@
-PROJECT ?= $(shell basename $(CURDIR))
+PROJECT ?= $(shell basename $(CURDIR))  # same as config/settings.yaml -> project.name
 TF := terraform -chdir=infra/terraform
 PYTHON ?= python3
 
-.PHONY: help install test lint fmt generate live-dry seed deploy demo destroy leftovers cost
+.PHONY: help install test lint fmt generate live-dry seed deploy upload-history stream destroy leftovers cost
 
 help: ## List targets
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
@@ -32,13 +32,17 @@ seed: ## Load the end-of-history stock into DynamoDB (after deploy, before the l
 
 deploy: ## Create the stack (read the cost estimate in docs/spec.md first)
 	$(TF) init -input=false
-	$(TF) apply -var="project=$(PROJECT)"
+	$(TF) apply
 
-demo: ## Send data / run jobs (define per project)
-	@echo "Define the demo steps for this project"
+upload-history: ## Upload the generated history and master data to the lake bucket (after deploy)
+	aws s3 sync data/generated/raw s3://$$($(TF) output -raw bucket)/raw/
+	aws s3 sync data/generated/reference s3://$$($(TF) output -raw bucket)/reference/
+
+stream: ## Stream the live session to Kinesis (after seed); alerts arrive by email within seconds
+	$(PYTHON) -m src.generators.live --stream $$($(TF) output -raw stream_name)
 
 destroy: ## Delete everything
-	$(TF) destroy -var="project=$(PROJECT)"
+	$(TF) destroy
 
 leftovers: ## Check nothing billable is still running
 	scripts/leftovers.sh $(PROJECT)
