@@ -1,0 +1,11 @@
+# Lessons learned
+
+Decisions that changed because of evidence, while building this project. Each entry: what we assumed, what the data showed, what we changed, and the measured result.
+
+## 1. A fixed reject-rate threshold produced mostly false alarms
+- **Assumption:** alert Quality when a station rejects more than 3% of parts in an hour (with at least 20 parts handled).
+- **What the data showed:** replaying the live session through the alert rules locally, before deploying, raised **22 alerts in 3 hours, and 14 of them were false** (64%). Stations handle very different volumes (~60 vs ~200 parts per hour), so on low-volume stations a single reject already crossed 3%. Over the 7-day history the rule fired 863 times.
+- **Why it matters:** alert fatigue. A team that gets 22 emails a morning stops reading them, including the real ones.
+- **Change:** statistical process control. The alert fires when a station is above its **p-chart upper control limit** (`p̄ + 3·√(p̄(1−p̄)/n)`), which adapts to volume (5.4% at 60 parts, 3.5% at 200), plus a 3% floor and at least 4 rejects. See ADR-010 in `docs/decisions.md`.
+- **Result:** **7 alerts in the live session, all 7 on the stations using the defective lot.** Zero false alarms. Over the 7-day history: 66 alerts instead of 863.
+- **Takeaway:** test alert rules against realistic data before deploying them. A threshold is a business decision, and its false-alarm rate is part of that decision.

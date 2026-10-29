@@ -101,13 +101,18 @@ make destroy && make leftovers # tears everything down and checks nothing billab
 | AWS Data Engineer – Associate | <Ingestion and transformation / Store / Operations / Security and governance> | <file> |
 | AWS AI Practitioner | <domain, if any> | <file> |
 
-## 11. What I'd do next
+## 11. Lessons learned
+<Decisions that changed because of evidence while building: what we assumed, what the data showed, what we changed, the measured result. Full entries in [docs/lessons-learned.md](docs/lessons-learned.md).>
+
+- **<Lesson>:** <assumption> → <evidence with numbers> → <change> → <result with numbers>
+
+## 12. What I'd do next
 - <production improvement 1>
 - <production improvement 2>
 
 ## Repository layout
 ```
-docs/              spec, architecture, KPI dictionary, decisions, runbook, coding standards, images
+docs/              spec, architecture, KPI dictionary, decisions, lessons learned, runbook, coding standards, images
 infra/terraform/   one numbered file per pipeline stage (0_main.tf first)
 src/               common (config, logging, AWS clients), generators, lambdas, glue_jobs
 sql/               one query per KPI
