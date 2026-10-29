@@ -34,8 +34,17 @@ locals {
   settings = yamldecode(file("${path.module}/../../config/settings.yaml"))
 
   # Who receives which alerts. Private file (gitignored); without it, no email subscriptions are created.
+  # try() returns [] when the file doesn't exist. Each entry is normalized to the same shape (missing
+  # lists become []) because Terraform needs every element of a collection to have the same type.
   subscribers_file = "${path.module}/../../config/subscribers.yaml"
-  subscribers      = fileexists(local.subscribers_file) ? yamldecode(file(local.subscribers_file)).subscribers : []
+  subscribers = [
+    for subscriber in try(yamldecode(file(local.subscribers_file)).subscribers, []) : {
+      email  = subscriber.email
+      role   = subscriber.role
+      alerts = try(subscriber.alerts, [])
+      plants = try(subscriber.plants, [])
+    }
+  ]
 
   # Short names used everywhere below
   project = local.settings.project.name

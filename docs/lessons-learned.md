@@ -16,3 +16,10 @@ Decisions that changed because of evidence, while building this project. Each en
 - **Change:** attribute names go through placeholders (`ADD #counter :quantity` with `ExpressionAttributeNames`). The Lambda's state layer is now always tested against moto: transactions, conditions and reserved words behave like the real service.
 - **Result:** the bug was fixed before any deploy, at no cost. The moto tests also prove end to end that replaying the whole live session (a full Lambda retry) changes no stock and sends no repeated alerts.
 - **Takeaway:** test pure logic with plain unit tests, and the AWS integration against a faithful simulation of the API, before paying for a deploy.
+
+## 3. The toolchain's CPU architecture matters on Apple Silicon
+- **Assumption:** `brew install terraform` gives a working Terraform.
+- **What happened:** `terraform validate` failed with *"timeout while waiting for plugin to start"*, both in the sandbox and in a normal terminal. Homebrew was an Intel install (`/usr/local`, running under Rosetta), so it installed the Intel Terraform, which downloaded the Intel AWS provider (~700 MB). That provider couldn't initialize within Terraform's start-up timeout under emulation.
+- **Change:** installed the official **native arm64** Terraform from releases.hashicorp.com, **verified its SHA256 checksum**, and re-initialized, which downloaded arm64 providers. Documented in `docs/configuration.md`.
+- **Result:** `terraform validate` ran and immediately caught two real type errors in the configuration (an inconsistent conditional, and subscriber entries with different shapes). Both are fixed.
+- **Takeaway:** when a tool "times out" for no clear reason on Apple Silicon, check `file $(which <tool>)` for the binary's architecture before debugging the code.

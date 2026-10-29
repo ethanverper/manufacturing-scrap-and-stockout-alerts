@@ -15,6 +15,18 @@ Everything you can change, where it lives, and what to do after changing it. If 
 make install   # Python dependencies (boto3, pyyaml, pytest, ruff, moto)
 ```
 
+**Installing Terraform on a Mac with Apple Silicon (M1–M4):** use the native **arm64** build. If Homebrew lives in `/usr/local` (an Intel/Rosetta install), `brew install terraform` installs the Intel build, whose ~700 MB AWS provider fails with *"timeout while waiting for plugin to start"*. Install the official arm64 binary instead and verify its checksum:
+```bash
+V=1.17.1
+curl -LO https://releases.hashicorp.com/terraform/$V/terraform_${V}_darwin_arm64.zip
+curl -LO https://releases.hashicorp.com/terraform/$V/terraform_${V}_SHA256SUMS
+grep darwin_arm64 terraform_${V}_SHA256SUMS | shasum -a 256 -c -
+unzip terraform_${V}_darwin_arm64.zip && install -m 0755 terraform /usr/local/bin/terraform
+terraform version   # must say: on darwin_arm64
+```
+
+`infra/terraform/.terraform.lock.hcl` pins the provider versions and checksums (macOS arm64 and Linux for CI). It is committed on purpose.
+
 ## 2. Configuration files at a glance
 
 | File | In git? | What it holds | Who reads it |

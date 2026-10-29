@@ -80,12 +80,12 @@ locals {
   # One entry per person in config/subscribers.yaml, keyed "<position>-<role>" (stable, readable)
   subscriptions = { for index, subscriber in local.subscribers : "${index}-${subscriber.role}" => subscriber }
 
-  # Each person's SNS filter policy, from their optional `alerts` and `plants` lists. try() skips a
-  # list the person didn't set; an empty result means "no filter" (they receive every alert).
+  # Each person's SNS filter policy, from their optional `alerts` and `plants` lists. An empty list
+  # adds no condition; an empty policy means "no filter" (the person receives every alert).
   subscription_filters = {
     for key, subscriber in local.subscriptions : key => merge(
-      try({ kind = subscriber.alerts }, {}),
-      try({ plant = subscriber.plants }, {}),
+      length(subscriber.alerts) > 0 ? { kind = subscriber.alerts } : {},
+      length(subscriber.plants) > 0 ? { plant = subscriber.plants } : {},
     )
   }
 }
