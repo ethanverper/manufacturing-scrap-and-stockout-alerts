@@ -22,9 +22,15 @@ project:
 # Business rules: alert thresholds (docs/kpi-dictionary.md explains each one)
 # -----------------------------------------------------------------------------
 alerts:
-  # Reject rate alert, per station, over the current clock hour
-  reject_rate_threshold_pct: 3.0      # alert above this percentage
-  reject_rate_min_units: 20           # ignore hours with fewer units handled (avoids 1-of-5 = 20% false alarms)
+  # Reject rate alert, per station, over the current clock hour.
+  # Statistical process control (p-chart): the station alerts when its reject rate goes above the
+  # upper control limit  UCL = baseline + sigma x sqrt(baseline x (1 - baseline) / units handled).
+  # The limit adapts to volume: few parts -> a higher % is needed before it is unusual.
+  # (docs/decisions.md ADR-010 shows why a fixed 3% produced 22 alerts in the live session, 14 of them false)
+  reject_rate_baseline_pct: 1.2       # normal reject rate (supplier 0.8% + process 0.4%); in production the nightly job recomputes it
+  reject_rate_sigma: 3.0              # how many standard deviations above normal counts as "unusual"
+  reject_rate_floor_pct: 3.0          # never alert below this rate, whatever the volume
+  reject_rate_min_rejects: 4          # at least this many rejected units in the hour (one or two rejects are noise)
   # Stock coverage alert, per plant and part
   stock_coverage_threshold_days: 1.0  # alert below this many days of planned usage
 

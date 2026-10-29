@@ -53,3 +53,10 @@
 - **Context:** a forgotten schedule keeps billing every night.
 - **Decision:** the Glue trigger is created with `enabled = false`, and the demo runs the job on demand (`make kpis`).
 - **Consequences:** in "production" the trigger is turned on with one variable (`enable_schedule = true`).
+
+## ADR-010: Reject-rate alert uses a p-chart control limit, not a fixed 3%
+- **Context:** the first rule (fixed 3%, minimum 20 units) was run against the live session locally. It raised **22 alerts, only 8 of them from the real problem** (the bad Voltex lot). Over the 7-day history it raised 863. Stations handle very different volumes (ASSEMBLY-3 ~60 parts/hour, ASSEMBLY-2 ~200), so with few parts a single reject already reads as "3.2%". Too many false alarms would teach Purchasing and Quality to ignore the emails, including the real ones.
+- **Decision:** statistical process control, as used on factory floors. The alert fires when the station's hourly rate is above its **upper control limit** `p̄ + 3·√(p̄(1−p̄)/n)`, **and** above a 3% floor, **and** with at least 4 rejected units.
+- **Result (local test on the same data):** **live session: 7 alerts, all 7 from the bad lot** (before: 22, with 14 false). 7-day history: 66 alerts (before: 863).
+- **Alternatives:** raising the fixed percentage (it misses the bad lot on high-volume stations), or a minimum of rejects only (it still raised 259 alerts over the history).
+- **Consequences:** the baseline p̄ (1.2%) is a setting. In production the nightly Glue job would recompute it per station from the last 30 days, a natural link between the batch and real-time paths.

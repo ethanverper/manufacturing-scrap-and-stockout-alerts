@@ -23,7 +23,7 @@
 
 | # | KPI | Formula | Hierarchy (L1 → L2 → L3 → L4) | Threshold / alert | Frequency |
 |---|---|---|---|---|---|
-| 1 | **Reject rate %** | rejected units ÷ (consumed + rejected units) | Plant → Line → Station → Part · Supplier → Part → Lot | **> 3% in the last hour** for a station → email Quality | Real time (hourly window) + daily |
+| 1 | **Reject rate %** | rejected units ÷ (consumed + rejected units) | Plant → Line → Station → Part · Supplier → Part → Lot | **Unusual in the current hour** for a station: above its 3σ control limit (p-chart, never below 3%) with ≥ 4 rejects → email Quality | Real time (hourly window) + daily |
 | 2 | **Stock coverage (days)** | units on hand ÷ planned daily usage | Plant → Part → Supplier | **< 1 day** → email Purchasing | Real time |
 | 3 | **Throughput vs plan %** | units produced ÷ planned units | Plant → Line → Shift → Hour | Report only (no alert) | Daily |
 | 4 | **Scrap cost ($)** | rejected units × unit cost | Plant → Supplier → Part · Plant → Line → Station | Report only; supplier-caused scrap = chargeback candidate | Daily |

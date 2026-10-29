@@ -11,7 +11,7 @@ Every KPI is computed in the Glue job at its **lowest grain** (gold tables) and 
 | **Lowest grain (gold)** | `dt · plant · line · station · part · supplier · lot · reason_code` |
 | **Hierarchies** | Plant → Line → Station → Part (where it happens) · Supplier → Part → Lot (who causes it) |
 | **Real-time version** | Same formula over the station's **current clock hour** (`station_hourly` table) |
-| **Threshold** | **> 3%** in the current hour for a station, with at least 20 units handled (so 1 reject out of 5 doesn't trigger an alert) → email **Quality** |
+| **Threshold** | Statistical process control (**p-chart**): alert when the station's hourly rate is above its upper control limit `UCL = p̄ + 3·√(p̄(1−p̄)/n)` (p̄ = 1.2% normal rate, n = parts handled), **and** above a 3% floor, **and** with ≥ 4 rejected units → email **Quality**. The limit adapts to volume: 5.4% for 60 parts/hour, 3.5% for 200. All values in `config/settings.yaml` → `alerts`. |
 | **Owner** | Quality engineering |
 | **Query** | `sql/01_reject_rate_rollup.sql` |
 | **Reading it** | A high rate concentrated in one **lot** with reason `SUPPLIER_DEFECT` → quarantine the lot and claim it from the supplier. A high rate spread across lots at one **station** with `PROCESS_DEFECT` → inspect the station. |

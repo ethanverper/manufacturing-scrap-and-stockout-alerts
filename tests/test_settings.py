@@ -6,10 +6,10 @@ from src.common.settings import master_data, settings
 
 
 def test_alert_thresholds_match_the_spec() -> None:
-    """docs/spec.md: reject rate > 3% per station-hour (min 20 units), coverage < 1 day."""
+    """docs/spec.md: reject rate above its 3-sigma control limit and the 3% floor, coverage < 1 day."""
     alerts = settings()["alerts"]
-    assert alerts["reject_rate_threshold_pct"] == 3.0
-    assert alerts["reject_rate_min_units"] == 20
+    assert alerts["reject_rate_floor_pct"] == 3.0
+    assert alerts["reject_rate_sigma"] == 3.0
     assert alerts["stock_coverage_threshold_days"] == 1.0
 
 

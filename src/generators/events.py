@@ -1,9 +1,9 @@
 """Builds individual plant events in the exact schema the pipeline consumes.
 
 Why a separate module:
-    The event schema is a contract shared by the generator, the Lambda, Firehose and the Glue
-    job. Defining it once here (field names, event types, reason codes, time format) avoids
-    small differences between producers that would break the consumers.
+    The generator needs one place that turns simulated scans into events that follow the
+    contract in src/common/schema.py exactly (same field names, types and time format), so the
+    Lambda and the Glue job read demo data the same way they would read real scanners.
 
 Schema (one JSON object per scan):
     event_id     unique per business event; retries re-send the same id
@@ -18,23 +18,40 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
 
+# The contract (event types, reason codes, pseudo-stations, time format) lives in
+# src/common/schema.py, shared with the Lambda and the Glue job. Re-exported here so the
+# generator modules can keep importing everything event-related from one place.
+from src.common.schema import (
+    CONSUMED,
+    END_OF_LINE,
+    EVENT_TIME_FORMAT,
+    EVENT_TYPES,
+    PROCESS_DEFECT,
+    PRODUCED,
+    REASON_CODES,
+    RECEIVED,
+    REJECTED,
+    SUPPLIER_DEFECT,
+    WAREHOUSE,
+)
 from src.common.settings import settings
 
-# Event types: what happened at the scanner
-CONSUMED = "CONSUMED"  # a station installed parts
-REJECTED = "REJECTED"  # parts failed inspection and were scrapped
-RECEIVED = "RECEIVED"  # the warehouse received a delivery
-PRODUCED = "PRODUCED"  # finished units left the end of the line
-EVENT_TYPES: tuple[str, ...] = (CONSUMED, REJECTED, RECEIVED, PRODUCED)
-
-# Why a part was rejected: decides who pays for it
-SUPPLIER_DEFECT = "SUPPLIER_DEFECT"  # arrived bad: recoverable from the supplier
-PROCESS_DEFECT = "PROCESS_DEFECT"  # damaged by our station: internal loss
-REASON_CODES: tuple[str, ...] = (SUPPLIER_DEFECT, PROCESS_DEFECT)
-
-# Pseudo-stations for events that don't happen on an assembly station
-WAREHOUSE = "WAREHOUSE"
-END_OF_LINE = "END-OF-LINE"
+__all__ = [
+    "CONSUMED",
+    "END_OF_LINE",
+    "EVENT_TYPES",
+    "PLANT_TZ",
+    "PROCESS_DEFECT",
+    "PRODUCED",
+    "REASON_CODES",
+    "RECEIVED",
+    "REJECTED",
+    "SUPPLIER_DEFECT",
+    "WAREHOUSE",
+    "make_event",
+    "make_event_id",
+    "to_utc_iso",
+]
 
 # Plant local time zone (config/settings.yaml -> project.plant_utc_offset_hours).
 # A fixed offset: the plants are in Mexico, UTC-6 all year, so there are no daylight-saving surprises.
@@ -53,7 +70,7 @@ def to_utc_iso(local_time: datetime) -> str:
     Returns:
         UTC time as "YYYY-MM-DDTHH:MM:SSZ".
     """
-    return local_time.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return local_time.astimezone(timezone.utc).strftime(EVENT_TIME_FORMAT)
 
 
 def make_event_id(local_day: date, plant: str, sequence: int) -> str:
