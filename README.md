@@ -1,123 +1,90 @@
-<!--
-TEMPLATE: replace every <...> and delete these comments.
-Order matters: a non-technical reader should understand sections 1–4 without reading code.
--->
+# Catch scrap and stock-outs on the factory floor in seconds
 
-# <Business outcome in plain words, e.g. "Catch scrap and stock-outs on the factory floor in seconds">
+A streaming + batch data pipeline on AWS that tells a plant **where it is losing money to scrapped parts, which supplier or station is causing it, and whether a line is about to stop because a part is running out.**
 
-<One sentence: what this pipeline measures, for whom, and how fast.>
+![CI](https://github.com/ethanverper/manufacturing-scrap-and-stockout-alerts/actions/workflows/ci.yml/badge.svg)
+![Python](https://img.shields.io/badge/python-3.10%2B-blue) ![Terraform](https://img.shields.io/badge/IaC-Terraform-7B42BC) ![AWS](https://img.shields.io/badge/AWS-Kinesis%20·%20Lambda%20·%20DynamoDB%20·%20SNS%20·%20Firehose%20·%20Glue%20·%20Athena-FF9900)
 
-![CI](https://github.com/ethanverper/<repo>/actions/workflows/ci.yml/badge.svg)
-![Python](https://img.shields.io/badge/python-3.12-blue) ![Terraform](https://img.shields.io/badge/IaC-Terraform-7B42BC) ![AWS](https://img.shields.io/badge/AWS-<services>-FF9900)
-![Cost](https://img.shields.io/badge/run%20cost-%24<0.00>-brightgreen)
+> 🚧 **Work in progress.** This repository is built in small, reviewed levels; the table below shows where it stands. Each level is a separate set of commits.
+
+## Progress
+
+| Level | What | Status |
+|---|---|---|
+| 0 | Business case, KPIs, design, cost estimate (`docs/spec.md`, `docs/architecture.md`, `docs/kpi-dictionary.md`, `docs/decisions.md`) | ✅ Done |
+| 1 | Plant data generator: 2 plants, 11 parts, 4 suppliers, 7 days of history with three planted incidents | ✅ Done |
+| 2 | Real-time alert logic: event validation, KPI math, **statistical process control** reject-rate rule | ✅ Done |
+| 3 | Exactly-once state in DynamoDB (one transaction per event), SNS alerts, Lambda handler | ✅ Done |
+| 4 | Terraform: Kinesis, Lambda, DynamoDB, SNS with per-person filtered subscriptions | ✅ Done |
+| 5 | Firehose landing to S3 + Glue (PySpark) daily KPIs | ⏳ Next |
+| 6 | Athena KPI rollups (`GROUP BY ROLLUP`) and charts | ⏳ |
+| 7 | Real deploy with evidence, cost report, teardown | ⏳ |
 
 ## 1. The business problem
-<One paragraph for any industry: what goes wrong today, what it costs, who decides, what decision this enables.>
 
-**Who uses it:** <role 1> · <role 2> · <role 3>
+In an assembly plant, two things quietly cost money every day:
+
+- **Scrap.** Parts fail inspection and are thrown away. It is usually reported once a month, so a defective supplier lot can be consumed for weeks before anyone connects the rejects to it.
+- **Stock-outs.** A part runs out, the line stops, and every hour stopped costs thousands of dollars. Today the shortage is discovered when the bin is empty.
+
+**Who uses it:** Purchasing (expedite an order before a part runs out) · Quality (inspect a station or quarantine a supplier lot) · Plant manager (lines behind plan) · Plant controller (scrap cost, and charging supplier defects back to the supplier)
 
 ## 2. KPIs
-| KPI | Formula | Why it matters | Threshold / alert | Frequency |
-|---|---|---|---|---|
-| <KPI 1> | <a / b> | <impact> | <e.g. > 2% → SNS> | <real time / hourly / daily> |
-| <KPI 2> | | | | |
-| <KPI 3> | | | | |
 
-```mermaid
-mindmap
-  root((<North-star KPI>))
-    <Level 1: e.g. Plant>
-      <Level 2: e.g. Line>
-        <Level 3: e.g. Station>
-    <Level 1>
-      <Level 2>
-```
+| KPI | Formula | Hierarchy | Alert | Frequency |
+|---|---|---|---|---|
+| **Reject rate %** | rejected ÷ (consumed + rejected) | Plant → Line → Station → Part · Supplier → Part → Lot | Station-hour above its 3σ **p-chart control limit** (never below 3%, ≥ 4 rejects) → email Quality | Real time + daily |
+| **Stock coverage (days)** | units on hand ÷ planned daily usage | Plant → Part → Supplier | < 1 day → email Purchasing | Real time |
+| **Throughput vs plan %** | produced ÷ planned units | Plant → Line → Shift → Hour | Report only | Daily |
+| **Scrap cost ($)** | rejected units × unit cost | Plant → Supplier → Part · Plant → Line → Station | Report only (supplier defects = chargeback candidates) | Daily |
+
 Full definitions: [docs/kpi-dictionary.md](docs/kpi-dictionary.md)
 
-## 3. What the data shows
-<Real results from the deployed run. 3 findings, each with a number and the decision it drives.>
+## 3. Architecture
 
-1. **<Finding>:** <number> → <decision>
-2. **<Finding>:** <number> → <decision>
-3. **<Finding>:** <number> → <decision>
-
-![Result](docs/images/<result>.png)
-
-## 4. Architecture
 ```mermaid
 flowchart LR
-    SRC[<Source>] --> ING[<Ingestion>] --> PROC[<Processing>] --> STORE[(<Storage>)] --> CONS[<Consumption>]
+    SC[Plant scanners] --> KDS[(Kinesis Data Streams)]
+    KDS --> L[Lambda: validate + rules]
+    L --> D[(DynamoDB: stock, counters, exactly-once)]
+    L --> SNS[[SNS: filtered email per person]]
+    KDS --> FH[Firehose] --> RAW[(S3 raw)]
+    RAW --> G[Glue PySpark: daily KPIs] --> GOLD[(S3 gold)] --> ATH[Athena]
 ```
 
-**Data flow:** how one record travels, step by step.
-```mermaid
-sequenceDiagram
-    participant S as <Source>
-    participant I as <Ingestion>
-    participant P as <Processing>
-    S->>I: <what is sent>
-    I->>P: <what happens>
-```
+Details, data flow and storage layout: [docs/architecture.md](docs/architecture.md) · why each choice: [docs/decisions.md](docs/decisions.md)
 
-## 5. Why each service
-| Service | Role here | Why this one (and not the alternative) |
-|---|---|---|
-| <Service> | <role> | <reason, e.g. "Firehose instead of a custom consumer: no code, built-in Parquet conversion"> |
+## 4. Lessons learned so far
 
-## 6. Alerts and schedule
-| Alert / job | Rule or schedule | Channel | Owner |
-|---|---|---|---|
-| <Low stock> | <stock_left < safety stock> | SNS email | <Purchasing> |
-| <Nightly ETL> | `cron(0 6 * * ? *)` | Glue trigger | — |
+1. **A fixed 3% alert threshold produced 64% false alarms** on a realistic session (22 alerts, 14 false), because stations handle very different volumes. A **p-chart control limit** that adapts to volume raises 7 alerts, all 7 on the stations using the defective lot.
+2. **Testing against a simulated AWS API (moto) caught a bug unit tests missed:** `consumed` is a DynamoDB reserved word. Fixed before any deploy.
+3. **On Apple Silicon, check the toolchain's CPU architecture:** an Intel Terraform under Rosetta timed out loading the AWS provider. The native arm64 build fixed it, and `terraform validate` then caught two real type errors.
 
-## 7. Data layers
-| Layer | Location | Grain | Written by |
-|---|---|---|---|
-| Raw | `s3://…/raw/` | one row per event, as received | <Firehose / upload> |
-| Curated | `s3://…/curated/` | <grain> | <Glue job> |
-| Gold | `s3://…/gold/` | <KPI grain> | <job> |
+All entries, with numbers: [docs/lessons-learned.md](docs/lessons-learned.md)
 
-## 8. Engineering practices
-- **Idempotency / duplicates:** <how>
-- **Data quality:** <checks and what happens on failure>
-- **Security:** least-privilege IAM role per component, encryption at rest (SSE), TLS-only bucket policy
-- **Monitoring:** <CloudWatch alarms>
-- **CI/CD:** <what runs on every push>
-- **Cost:** see below
-- **Code standards:** modular, typed, commented at every step — see [docs/CODING_STANDARDS.md](docs/CODING_STANDARDS.md)
+## 5. Run it
 
-## 9. Run it
-Full setup, every configuration file and how to change it: [docs/configuration.md](docs/configuration.md).
+Setup, every configuration file and the run order: [docs/configuration.md](docs/configuration.md)
 
 ```bash
-make install && make test      # local, no AWS
-make deploy                    # creates the stack (see cost below)
-make demo                      # sends data / runs the jobs
-make destroy && make leftovers # tears everything down and checks nothing billable is left
+make install && make test   # unit tests + simulated-AWS (moto) tests, no AWS account needed
+make generate               # 7 days of simulated plant history into data/generated/
 ```
-**Estimated cost:** $<x.xx> for a <n>-hour run. **Actual cost:** $<x.xx> (Cost Explorer, tag `Project=<repo>`).
 
-## 10. Certification mapping
-| Exam | Domain | Where in this repo |
-|---|---|---|
-| AWS Data Engineer – Associate | <Ingestion and transformation / Store / Operations / Security and governance> | <file> |
-| AWS AI Practitioner | <domain, if any> | <file> |
-
-## 11. Lessons learned
-<Decisions that changed because of evidence while building: what we assumed, what the data showed, what we changed, the measured result. Full entries in [docs/lessons-learned.md](docs/lessons-learned.md).>
-
-- **<Lesson>:** <assumption> → <evidence with numbers> → <change> → <result with numbers>
-
-## 12. What I'd do next
-- <production improvement 1>
-- <production improvement 2>
+**Estimated cost of a full demo run:** ≈ $0.15 (see `docs/spec.md`, section 5).
 
 ## Repository layout
+
 ```
-docs/              spec, architecture, KPI dictionary, decisions, lessons learned, configuration, runbook, coding standards, images
-infra/terraform/   one numbered file per pipeline stage (0_main.tf first)
-src/               common (config, logging, AWS clients), generators, lambdas, glue_jobs
-sql/               one query per KPI
-tests/             unit tests (no AWS needed)
-scripts/           leftovers and cost checks
+config/            settings.yaml (every tunable value) · master_data.yaml · subscribers.example.yaml
+docs/              spec, architecture, KPI dictionary, decisions, lessons learned, configuration, coding standards
+infra/terraform/   one numbered file per pipeline stage
+src/
+  common/          shared contract (schema), settings, config, logging, AWS clients
+  generators/      plant simulator: history backfill and live producer
+  lambdas/         realtime_alerts: parsing · rules · state · notifier · handler
+scripts/           seed_stock, leftovers, cost
+tests/             unit tests and moto-backed integration tests
 ```
+
+Code standards: modular, typed, commented at every step. See [docs/CODING_STANDARDS.md](docs/CODING_STANDARDS.md).
