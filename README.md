@@ -17,8 +17,8 @@ A streaming + batch data pipeline on AWS that tells a plant **where it is losing
 | 3 | Exactly-once state in DynamoDB (one transaction per event), SNS alerts, Lambda handler | ✅ Done |
 | 4 | Terraform: Kinesis, Lambda, DynamoDB, SNS with per-person filtered subscriptions | ✅ Done |
 | 5 | Firehose landing to S3 + Glue (PySpark) daily KPIs: validation with quarantine, deduplication, one gold table per KPI, record reconciliation | ✅ Done |
-| 6 | Athena KPI rollups (`GROUP BY ROLLUP`) and charts | ⏳ Next |
-| 7 | Real deploy with evidence, cost report, teardown | ⏳ |
+| 6 | Athena tables (partition projection, 1 GB scan cap), six KPI queries with `GROUP BY ROLLUP`, charts from the results (same SQL tested locally on Spark) | ✅ Done |
+| 7 | Real deploy with evidence, cost report, teardown | ⏳ Next |
 
 ## 1. The business problem
 
@@ -61,6 +61,7 @@ Details, data flow and storage layout: [docs/architecture.md](docs/architecture.
 3. **On Apple Silicon, check the toolchain's CPU architecture:** an Intel Terraform under Rosetta timed out loading the AWS provider. The native arm64 build fixed it, and `terraform validate` then caught two real type errors.
 
 4. **A record-count reconciliation test found a corrupted scan that rule-by-rule validation let through:** 55 corrupted scans, 54 quarantined. A finished-unit scan with a made-up part code was being counted as production. The job now proves `raw = curated + duplicates + quarantined` for every day before writing (53,126 = 52,562 + 509 + 55).
+5. **A local test engine must read data exactly like the real one:** Spark guessed the `dt` partition was a date; Athena declares it as text. Making the local run just as strict lets the same six SQL files run unchanged on both engines, tested before any query is paid for.
 
 All entries, with numbers: [docs/lessons-learned.md](docs/lessons-learned.md)
 
@@ -72,6 +73,7 @@ Setup, every configuration file and the run order: [docs/configuration.md](docs/
 make install && make test   # unit, simulated-AWS (moto) and local Spark tests, no AWS account needed
 make generate               # 7 days of simulated plant history into data/generated/
 make kpis-local             # run the Glue (PySpark) KPI job on it with a local Spark, no AWS
+make charts-local           # run the sql/ KPI queries on the result and draw the charts
 ```
 
 **Estimated cost of a full demo run:** ≈ $0.15 (see `docs/spec.md`, section 5).
@@ -82,12 +84,14 @@ make kpis-local             # run the Glue (PySpark) KPI job on it with a local 
 config/            settings.yaml (every tunable value) · master_data.yaml · subscribers.example.yaml
 docs/              spec, architecture, KPI dictionary, decisions, lessons learned, configuration, coding standards
 infra/terraform/   one numbered file per pipeline stage
+sql/               one query per business question (GROUP BY ROLLUP), runs on Athena and Spark
 src/
   common/          shared contract (schema), settings, config, logging, AWS clients
   generators/      plant simulator: history backfill and live producer
   lambdas/         realtime_alerts: parsing · rules · state · notifier · handler
   glue_jobs/       daily_kpis (extract → transform → reconcile → load) · transforms (pure PySpark)
-scripts/           seed_stock, kpis_local, leftovers, cost
+  analytics/       run sql/ on Athena or local Spark · draw the README charts
+scripts/           seed_stock, kpis_local, make_charts, leftovers, cost
 tests/             unit tests and moto-backed integration tests
 ```
 

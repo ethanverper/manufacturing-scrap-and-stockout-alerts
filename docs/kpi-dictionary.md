@@ -13,7 +13,7 @@ Every KPI is computed in the Glue job at its **lowest grain** (gold tables) and 
 | **Real-time version** | Same formula over the station's **current clock hour** (`station_hourly` table) |
 | **Threshold** | Statistical process control (**p-chart**): alert when the station's hourly rate is above its upper control limit `UCL = p̄ + 3·√(p̄(1−p̄)/n)` (p̄ = 1.2% normal rate, n = parts handled), **and** above a 3% floor, **and** with ≥ 4 rejected units → email **Quality**. The limit adapts to volume: 5.4% for 60 parts/hour, 3.5% for 200. All values in `config/settings.yaml` → `alerts`. |
 | **Owner** | Quality engineering |
-| **Query** | `sql/01_reject_rate_rollup.sql` |
+| **Query** | `sql/01_reject_rate_by_location.sql` (where) · `sql/02_reject_rate_by_supplier_lot.sql` (who) |
 | **Reading it** | A high rate concentrated in one **lot** with reason `SUPPLIER_DEFECT` → quarantine the lot and claim it from the supplier. A high rate spread across lots at one **station** with `PROCESS_DEFECT` → inspect the station. |
 
 ## 2. Stock coverage (days)
@@ -27,7 +27,7 @@ Every KPI is computed in the Glue job at its **lowest grain** (gold tables) and 
 | **Real-time version** | `on_hand` from the `part_stock` table, after every movement |
 | **Threshold** | **< 1.0 day** → email **Purchasing** (once per part per day) |
 | **Owner** | Purchasing / material planning |
-| **Query** | `sql/02_stock_coverage.sql` |
+| **Query** | `sql/03_stock_coverage.sql` (no rollup: days of coverage are not additive) |
 | **Reading it** | Under 1 day means the next delivery must arrive within 24 h or the line stops. The supplier column says who to call. |
 
 ## 3. Throughput vs plan %
@@ -41,7 +41,7 @@ Every KPI is computed in the Glue job at its **lowest grain** (gold tables) and 
 | **Shifts** | Morning 06:00–14:00 · Evening 14:00–22:00 · Night 22:00–06:00 (plant local time) |
 | **Threshold** | Report only. Below 90% for a full shift is highlighted in the README charts. |
 | **Owner** | Plant manager |
-| **Query** | `sql/03_throughput_vs_plan.sql` |
+| **Query** | `sql/04_throughput_vs_plan.sql` |
 | **Reading it** | A line consistently behind on one shift points to staffing or process. Comparing it with the reject rate tells whether quality is the cause. |
 
 ## 4. Scrap cost ($)
@@ -55,7 +55,7 @@ Every KPI is computed in the Glue job at its **lowest grain** (gold tables) and 
 | **Split** | `SUPPLIER_DEFECT` = **recoverable** (chargeback candidate) · `PROCESS_DEFECT` = **internal loss** |
 | **Threshold** | Report only |
 | **Owner** | Plant controller (finance) |
-| **Query** | `sql/04_scrap_cost_by_supplier.sql` |
+| **Query** | `sql/05_scrap_cost_by_supplier.sql` |
 | **Reading it** | The recoverable amount per supplier is the claim to file. The internal loss per station is the business case for fixing it. |
 
 ## Shared definitions

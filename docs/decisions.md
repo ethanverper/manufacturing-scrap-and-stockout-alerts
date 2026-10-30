@@ -72,3 +72,16 @@
 - **Decision:** the job uses plain Spark DataFrames on **Glue 5.0 (Spark 3.5)**. The transformations live in `src/glue_jobs/transforms.py` as pure functions; `src/glue_jobs/daily_kpis.py` only reads, calls them and writes. Tests and `make kpis-local` run the same code with **PySpark 3.5** on a laptop or in CI.
 - **Alternatives:** DynamicFrames (useful for messy, changing schemas and job bookmarks, neither needed here), or developing directly against Glue (slow and billed per run).
 - **Consequences:** the job is portable to EMR or Databricks unchanged, and every rule is tested before deploy. Local runs need Java 17 for Spark.
+
+## ADR-013: Portable KPI SQL, run on Athena and tested on Spark
+- **Context:** the KPI queries run on Athena (Trino). Testing them only after a deploy means paying for every mistake.
+- **Decision:** the `sql/` files stick to SQL that both Athena and Spark SQL accept. Two things are avoided:
+  - engine-specific `GROUPING()` functions. The hierarchy level is derived with `CASE WHEN <column> IS NULL`, which is safe because no dimension is null in the gold tables;
+  - decimal-only arithmetic.
+
+  `src/analytics/local_spark.py` registers the job's tables under their Athena names (folder with `/` → `_`), keeps `dt` as a string like the catalog does, and runs the same files. `tests/glue_jobs/test_sql.py` checks:
+  - that every query runs;
+  - that ROLLUP subtotals add up level by level;
+  - that the planted story reads correctly in the results.
+- **Alternatives:** separate test queries (they drift from the real ones), or testing only on Athena (it costs money and needs a deploy).
+- **Consequences:** a mistake in a query is caught for free. Stock coverage is deliberately not rolled up: days of coverage are not additive.

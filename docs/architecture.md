@@ -150,10 +150,28 @@ Plain Spark DataFrames, so the same code runs on Glue, in CI and on a laptop (AD
 6. **Build KPIs:** one gold table per KPI at the **lowest grain** of its hierarchy, with additive counts only (rates are computed after rolling up).
 7. **Reconcile, then load:** the run fails without writing if `raw ≠ curated + duplicates + quarantined` on any day. Otherwise Parquet, partitioned by `dt`, overwriting only the dates present (ADR-011: full refresh, idempotent).
 
-### Athena
-- Workgroup with a **1 GB per-query scan limit**, and results expire after 7 days.
-- Glue Catalog tables use **partition projection** on `dt`, so no crawlers are needed.
-- `sql/` holds one query per KPI. **`GROUP BY ROLLUP`** rolls the lowest grain up through every hierarchy level in one query: Plant → Line → Station → Part.
+### Athena (`infra/terraform/5_analytics.tf`)
+- **Glue Data Catalog database** with 8 tables, one per lake folder. Naming rule: folder with `/` replaced by `_`.
+  - `raw_plant_events`: JSON SerDe.
+  - `curated_events_clean` and `quarantine_plant_events`: Parquet.
+  - `gold_reject_rate`, `gold_stock_coverage`, `gold_throughput`, `gold_scrap_cost`, `gold_data_quality`: Parquet.
+- **Partition projection** on `dt`:
+  - Athena computes the `dt=` folders from a date range (from 30 days ago to tomorrow).
+  - No crawlers and no `MSCK REPAIR`. A day is queryable as soon as Glue or Firehose writes it.
+- **Workgroup:**
+  - **1 GB scan limit per query** that clients can't override. At $5 per TB, the worst possible query costs $0.005.
+  - Results go to `athena-results/`, which expire after 7 days.
+- **`sql/`: one file per business question.** `GROUP BY ROLLUP` returns every level of a hierarchy in one query. Rates are computed **after** summing.
+  - `01_reject_rate_by_location.sql`: Plant → Line → Station → Part.
+  - `02_reject_rate_by_supplier_lot.sql`: Supplier → Part → Lot.
+  - `03_stock_coverage.sql`: Plant → Part → Supplier, day by day. No rollup, because days of coverage don't add up.
+  - `04_throughput_vs_plan.sql`: Plant → Line → Shift.
+  - `05_scrap_cost_by_supplier.sql`: Plant → Supplier → Part, split into recoverable and internal loss.
+  - `06_data_quality.sql`: the daily record reconciliation.
+- **Portable SQL** (ADR-013): the same files run on Athena (Trino) and on Spark SQL. The local tests run them.
+- **Charts** (`scripts/make_charts.py`, `src/analytics/`):
+  - runs the queries on Athena (`make charts`) or on the local lake (`make charts-local`);
+  - saves PNGs plus each query's result as a CSV.
 
 ## 4. Storage layout
 
@@ -192,11 +210,14 @@ src/
     transforms.py         pure PySpark functions, one per step and per KPI
 infra/terraform/
   0_main.tf · 1_ingestion.tf · 2_realtime.tf · 3_landing.tf · 4_batch.tf · 5_analytics.tf
-  variables.tf · outputs.tf
+  outputs.tf
+  analytics/
+    queries.py · athena.py · local_spark.py · charts.py
 sql/
-  01_reject_rate_rollup.sql · 02_stock_coverage.sql · 03_throughput_vs_plan.sql · 04_scrap_cost_by_supplier.sql
+  01_reject_rate_by_location.sql · 02_reject_rate_by_supplier_lot.sql · 03_stock_coverage.sql
+  04_throughput_vs_plan.sql · 05_scrap_cost_by_supplier.sql · 06_data_quality.sql
 scripts/
-  seed_stock.py · make_charts.py · leftovers.sh · cost.sh
+  seed_stock.py · kpis_local.py · make_charts.py · leftovers.sh · cost.sh
 tests/
   mirrors src/
 ```

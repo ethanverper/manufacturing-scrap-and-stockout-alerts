@@ -49,7 +49,7 @@ terraform version   # must say: on darwin_arm64
 | `alerts` | `reject_rate_baseline_pct`, `reject_rate_sigma`, `reject_rate_floor_pct`, `reject_rate_min_rejects`, `stock_coverage_threshold_days` | The business wants more or fewer alerts. See `docs/kpi-dictionary.md` and ADR-010 in `docs/decisions.md` |
 | `plant` | plants, lines, station types, batch size, shifts, delivery hour, pallet size | Simulating a different plant layout |
 | `simulation` | `seed`, `history_days`, defect rates, the 3 `incidents`, `noise`, `live_session` | Changing the story in the data, or its volume |
-| `aws` | `kinesis`, `lambda`, `dynamodb`, `firehose` (buffer size/interval, `log_retention_days`), `glue` (`glue_version`, workers, `timeout_minutes`, `schedule_cron`, `schedule_enabled`), `athena` | Sizing, timeouts, retention (defaults are the cheapest that work). `schedule_enabled: true` turns the nightly job on (it bills every night). |
+| `aws` | `kinesis`, `lambda`, `dynamodb`, `firehose` (buffer size/interval, `log_retention_days`), `glue` (`glue_version`, workers, `timeout_minutes`, `schedule_cron`, `schedule_enabled`), `athena` (`bytes_scanned_cutoff_per_query`, `results_expiration_days`, `projection_days_back`, `query_timeout_seconds`) | Sizing, timeouts, retention (defaults are the cheapest that work). `schedule_enabled: true` turns the nightly job on (it bills every night). |
 
 ### `config/master_data.yaml`
 
@@ -119,6 +119,12 @@ The Glue job reads only its job arguments. Terraform sets them in `infra/terrafo
 
 Firehose takes `aws.firehose.*` (buffering, log retention) in `infra/terraform/3_landing.tf`. Its S3 prefix `raw/plant_events/dt=…/` is the lake layout, not a setting.
 
+Athena (`infra/terraform/5_analytics.tf`) takes:
+- `aws.athena.bytes_scanned_cutoff_per_query`: the workgroup's per-query scan limit;
+- `aws.athena.projection_days_back`: how far back partition projection looks for `dt` folders. Raise it if you query older data.
+
+`scripts/make_charts.py --engine athena` needs the workgroup and the database. `make charts` reads both from `terraform output` (`athena_workgroup`, `athena_database`) and waits up to `aws.athena.query_timeout_seconds` per query.
+
 ## 5. Private and generated files (never committed)
 
 | Path | What | Recreate with |
@@ -126,6 +132,7 @@ Firehose takes `aws.firehose.*` (buffering, log retention) in `infra/terraform/3
 | `config/subscribers.yaml` | Real email addresses | `cp config/subscribers.example.yaml config/subscribers.yaml` |
 | `data/generated/` | Simulated history, master data CSVs (parts, plan, stations, opening stock), stock snapshot, live session | `make generate` |
 | `data/lake-local/` | Output of the KPI job run locally (curated, gold, quarantine) | `make kpis-local` |
+| `data/charts/` | Charts and query results drawn from the local lake | `make charts-local` |
 | `infra/terraform/.terraform/`, `*.tfstate*` | Terraform's provider cache and record of what it created | `terraform init` / created by `apply` |
 | `infra/terraform/build/` | The Lambda zip and the Glue modules zip | Built automatically by `terraform apply` |
 
@@ -138,11 +145,13 @@ Firehose takes `aws.firehose.*` (buffering, log retention) in `infra/terraform/3
 | 1 | `make test` | Unit + simulated-AWS (moto) + local Spark tests (~4 min on a laptop) | $0 |
 | 2 | `make generate` | 7 days of history + master data into `data/generated/` | $0 |
 | 2b | `make kpis-local` (optional) | Runs the Glue job on that data with a local Spark, into `data/lake-local/` | $0 |
-| 3 | `make deploy` | Creates the stream, Lambda, tables, topic and subscriptions, Firehose, the Glue job (schedule off) and the bucket. **Confirm the subscription emails.** | Stream ~$0.015/hour from here on |
+| 2c | `make charts-local` (optional) | Runs the `sql/` queries on that lake and draws the charts into `data/charts/` | $0 |
+| 3 | `make deploy` | Creates the stream, Lambda, tables, topic and subscriptions, Firehose, the Glue job (schedule off), the Athena tables and workgroup, and the bucket. **Confirm the subscription emails.** | Stream ~$0.015/hour from here on |
 | 4 | `make seed` | Loads the end-of-history stock into DynamoDB | ~$0 |
 | 5 | `make upload-history` | History and master data to S3 | ~$0 |
 | 6 | `make stream` | ~1,000 live events over ~10 minutes. Alert emails arrive within seconds; Firehose lands them in `raw/` within ~1 minute | ~$0 |
 | 6b | `make kpis` | Starts the Glue job on everything in `raw/` (history + live). Check it in the Glue console; ~3 minutes | ~$0.05 per run |
+| 6c | `make charts` | Runs the `sql/` queries on Athena and saves the charts and CSVs into `docs/images/` | < $0.01 |
 | 7 | `make destroy` then `make leftovers` | Deletes everything, then checks that nothing billable is left | — |
 
 ## 7. Common changes

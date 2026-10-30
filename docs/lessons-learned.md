@@ -30,3 +30,10 @@ Decisions that changed because of evidence, while building this project. Each en
 - **Change:** the rule is now "if an event carries a part code, the part must exist in that plant", checked on every event type (`src/glue_jobs/transforms.py`, `validate()`). The real-time Lambda ignores `PRODUCED` events for stock and reject rate, so it was not affected.
 - **Result:** the quarantine now matches the corrupted scans exactly (55 of 55), and the job's own reconciliation table proves, for every day, that `raw = curated + duplicates + quarantined` (53,126 = 52,562 + 509 + 55).
 - **Takeaway:** a test that reconciles record counts end to end finds the gaps that rule-by-rule tests don't think to look for. The same principle as reconciling a subledger to the general ledger: if the totals don't tie, something leaked.
+
+## 5. A local test engine must read data the way the real one does
+- **Assumption:** running the Athena queries on a local Spark copy of the lake would behave like Athena.
+- **What happened:** the first local chart run crashed: `dt` came back as a **date**, not as text. When Spark reads `dt=2026-10-28` folders, it guesses the partition type. Athena doesn't guess: the catalog declares `dt` as a string. Code that worked locally could have broken on AWS, or the other way around.
+- **Change:** the local runner turns partition type inference off (`spark.sql.sources.partitionColumnTypeInference.enabled = false`), so `dt` is text in both engines. The queries also avoid functions whose meaning differs between Trino and Spark (`GROUPING()`) and derive the hierarchy level with `CASE WHEN <column> IS NULL` (ADR-013).
+- **Result:** the same six `.sql` files run unchanged on both engines. `tests/glue_jobs/test_sql.py` checks that ROLLUP subtotals add up and that the story reads correctly, before any Athena query is paid for.
+- **Takeaway:** a local stand-in is only useful if it is strict about the same contract (names, types, partitions) as production. Otherwise it gives false confidence.
