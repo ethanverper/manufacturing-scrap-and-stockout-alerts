@@ -115,9 +115,11 @@ aws:
   dynamodb:
     events_seen_ttl_days: 2           # idempotency window for scanner retries
   firehose:
-    buffer_size_mb: 1
-    buffer_interval_seconds: 60
+    buffer_size_mb: 1                 # write a file every 1 MB...
+    buffer_interval_seconds: 60       # ...or every 60 s, whichever comes first
+    log_retention_days: 1             # delivery-error logs
   glue:
+    glue_version: "5.0"               # Spark 3.5 + Python 3.11 (the tests use the same PySpark)
     worker_type: G.1X
     number_of_workers: 2
     timeout_minutes: 10               # stops a runaway job (and its bill)

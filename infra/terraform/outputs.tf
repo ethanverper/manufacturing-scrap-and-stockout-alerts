@@ -32,3 +32,13 @@ output "alert_subscriptions" {
 output "realtime_dlq_url" {
   value = aws_sqs_queue.realtime_dlq.url
 }
+
+# The Firehose delivery stream that lands raw events (check its delivery in the console)
+output "firehose_name" {
+  value = aws_kinesis_firehose_delivery_stream.landing.name
+}
+
+# The daily KPI job (`make kpis` starts it)
+output "glue_job_name" {
+  value = aws_glue_job.daily_kpis.name
+}
