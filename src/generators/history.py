@@ -7,10 +7,13 @@ Where it sits in the pipeline:
         <out>/reference/parts/parts.csv                         (cost, supplier, planned usage)
         <out>/reference/plan/plan.csv                           (planned units per line and hour)
         <out>/reference/stations/stations.csv                   (plant -> line -> station)
+        <out>/reference/opening_stock/opening_stock.csv         (stock at the start of the history)
         <out>/seed/stock_snapshot.csv                           (stock at the end of the history)
 
     The stock snapshot seeds the real-time state in DynamoDB, so the live session continues
-    exactly where the history left off.
+    exactly where the history left off. The opening stock is what the Glue job starts from to
+    rebuild the end-of-day stock position (opening + every movement since), so the batch and
+    real-time paths can be reconciled against each other.
 
 Usage:
     python -m src.generators.history --days 7 --out data/generated
@@ -74,6 +77,37 @@ def simulate_history(days: int, end_day: date, seed: int) -> tuple[PlantSimulato
     return simulator, events
 
 
+def opening_stock_rows(days: int, end_day: date, seed: int) -> list[dict]:
+    """Stock per plant and part at the very start of the history, before any event.
+
+    Why: events only carry movements (+received, -consumed, -rejected). To know how many units are
+    on the shelf at the end of a day, the batch job needs the position it all started from.
+
+    Args:
+        days: Number of history days (the same value passed to simulate_history).
+        end_day: Last history day (plant local date).
+        seed: Random seed (the opening stock doesn't depend on it, but the simulator needs one).
+
+    Returns:
+        One row per plant and part: supplier, on-hand units and the date they were counted.
+    """
+    # A fresh simulator holds exactly the opening stock: nothing has been simulated yet
+    first_day = end_day - timedelta(days=days - 1)
+    simulator = PlantSimulator(history_days=days, first_day=first_day, seed=seed)
+
+    # Keep only what the batch job needs, plus the count date for anyone reading the CSV
+    return [
+        {
+            "plant": row["plant"],
+            "part": row["part"],
+            "supplier": row["supplier"],
+            "on_hand": row["on_hand"],
+            "as_of_local_date": first_day.isoformat(),
+        }
+        for row in simulator.stock_snapshot_rows()
+    ]
+
+
 def write_raw_events(events: list[dict], out_dir: Path) -> dict[str, int]:
     """Write events as gzipped JSON lines, one folder per UTC date (`dt=YYYY-MM-DD`).
 
@@ -112,16 +146,18 @@ def write_csv(path: Path, rows: list[dict]) -> None:
         writer.writerows(rows)
 
 
-def write_reference_data(out_dir: Path, plan_days: list[date]) -> None:
+def write_reference_data(out_dir: Path, plan_days: list[date], opening_stock: list[dict]) -> None:
     """Export the master data. Each table gets its own folder, so Athena can map one table to it.
 
     Args:
         out_dir: Root output folder.
         plan_days: Days to include in the production plan (history plus the live day).
+        opening_stock: Stock at the start of the history (rows from opening_stock_rows).
     """
     write_csv(out_dir / "reference" / "parts" / "parts.csv", reference.parts_rows())
     write_csv(out_dir / "reference" / "plan" / "plan.csv", reference.plan_rows(plan_days))
     write_csv(out_dir / "reference" / "stations" / "stations.csv", reference.stations_rows())
+    write_csv(out_dir / "reference" / "opening_stock" / "opening_stock.csv", opening_stock)
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -143,7 +179,7 @@ def main(argv: list[str] | None = None) -> None:
 
     # Write the three outputs
     counts = write_raw_events(events, args.out)
-    write_reference_data(args.out, plan_days)
+    write_reference_data(args.out, plan_days, opening_stock_rows(args.days, end_day, args.seed))
     write_csv(args.out / "seed" / "stock_snapshot.csv", simulator.stock_snapshot_rows())
 
     logger.info(
