@@ -10,6 +10,15 @@ infra/terraform/terraform.tfvars
 
 # Generated demo data (recreate with `make generate`)
 data/generated/
+data/lake-local/
+
+# Local Spark leftovers
+spark-warehouse/
+metastore_db/
+derby.log
+
+# Terraform packaging output
+infra/terraform/build/
 
 # Real alert subscribers (email addresses): never committed. Template: config/subscribers.example.yaml
 config/subscribers.yaml
