@@ -134,7 +134,7 @@ Athena (`infra/terraform/5_analytics.tf`) takes:
 | `data/lake-local/` | Output of the KPI job run locally (curated, gold, quarantine) | `make kpis-local` |
 | `data/charts/` | Charts and query results drawn from the local lake | `make charts-local` |
 | `infra/terraform/.terraform/`, `*.tfstate*` | Terraform's provider cache and record of what it created | `terraform init` / created by `apply` |
-| `infra/terraform/build/` | The Lambda zip and the Glue modules zip | Built automatically by `terraform apply` |
+| `infra/terraform/build/` | The Lambda zip, the Glue modules zip, and `deploy_started_at` (used by `make clean-glue-logs`) | Built automatically by `make deploy` |
 
 **Keep `*.tfstate` until you run `make destroy`.** It is how Terraform knows what to delete.
 
@@ -152,7 +152,13 @@ Athena (`infra/terraform/5_analytics.tf`) takes:
 | 6 | `make stream` | ~1,000 live events over ~10 minutes. Alert emails arrive within seconds; Firehose lands them in `raw/` within ~1 minute | ~$0 |
 | 6b | `make kpis` | Starts the Glue job on everything in `raw/` (history + live). Check it in the Glue console; ~3 minutes | ~$0.05 per run |
 | 6c | `make charts` | Runs the `sql/` queries on Athena and saves the charts and CSVs into `docs/images/` | < $0.01 |
-| 7 | `make destroy` then `make leftovers` | Deletes everything, then checks that nothing billable is left | — |
+| 6d | `make evidence PHASE=…` | After each phase (`deployed`, `streamed`, `batch`, `destroyed`): saves read-only CLI proof into `docs/evidence/<phase>/`, with the account id and emails redacted | ~$0 |
+| 7 | `make destroy` | Deletes all 41 resources (the bucket is emptied first) | — |
+| 8 | `make clean-glue-logs` | Deletes the log groups Glue created on its own during the deploy (Terraform didn't create them, so destroy can't) | — |
+| 9 | `make leftovers` | Three independent checks: the Project tag, every resource name, and services that bill by the hour. Must end with `✅ Nothing billable left.` A check that can't run counts as a failure. | $0 |
+| 10 | `make cost-daily` (next day) | Cost by service and day. Cost Explorer lags up to 24 h, and each call costs $0.01. `make cost` gives the same per project once the `Project` cost allocation tag is activated in Billing. | $0.01 |
+
+The record of a real run, step by step, goes in `docs/evidence/deploy-log.md`.
 
 ## 7. Common changes
 
