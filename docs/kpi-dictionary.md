@@ -8,7 +8,7 @@ Every KPI is computed in the Glue job at its **lowest grain** (gold tables) and 
 |---|---|
 | **Business definition** | Share of parts taken from stock that failed inspection |
 | **Formula** | `rejected_units / (consumed_units + rejected_units) × 100` |
-| **Lowest grain (gold)** | `dt · plant · line · station · part · supplier · lot · reason_code` |
+| **Lowest grain (gold)** | `dt · plant · line · station · part · supplier · lot`, with `consumed_units`, `rejected_units`, and rejects split into `supplier_defect_units` / `process_defect_units` (`gold/reject_rate`) |
 | **Hierarchies** | Plant → Line → Station → Part (where it happens) · Supplier → Part → Lot (who causes it) |
 | **Real-time version** | Same formula over the station's **current clock hour** (`station_hourly` table) |
 | **Threshold** | Statistical process control (**p-chart**): alert when the station's hourly rate is above its upper control limit `UCL = p̄ + 3·√(p̄(1−p̄)/n)` (p̄ = 1.2% normal rate, n = parts handled), **and** above a 3% floor, **and** with ≥ 4 rejected units → email **Quality**. The limit adapts to volume: 5.4% for 60 parts/hour, 3.5% for 200. All values in `config/settings.yaml` → `alerts`. |
@@ -22,7 +22,7 @@ Every KPI is computed in the Glue job at its **lowest grain** (gold tables) and 
 |---|---|
 | **Business definition** | How many days the plant can keep producing with the parts on hand, at the planned usage rate |
 | **Formula** | `units_on_hand / planned_daily_usage` |
-| **Lowest grain (gold)** | `dt · plant · part · supplier` (end-of-day position) |
+| **Lowest grain (gold)** | `dt · plant · part · supplier` (end-of-day position, UTC day): `closing_units = opening stock + running sum of every movement` (`gold/stock_coverage`). Rebuilt from raw events independently of the Lambda, and reconciled with it in tests. |
 | **Hierarchy** | Plant → Part → Supplier |
 | **Real-time version** | `on_hand` from the `part_stock` table, after every movement |
 | **Threshold** | **< 1.0 day** → email **Purchasing** (once per part per day) |
@@ -36,7 +36,7 @@ Every KPI is computed in the Glue job at its **lowest grain** (gold tables) and 
 |---|---|
 | **Business definition** | Finished units produced compared with the production plan |
 | **Formula** | `produced_units / planned_units × 100` |
-| **Lowest grain (gold)** | `dt · plant · line · shift · hour` |
+| **Lowest grain (gold)** | `dt · plant · line · local_date · local_hour` (+ `shift`), with `planned_units` and `produced_units` (`gold/throughput`). Built from the plan, so an hour without production shows 0. |
 | **Hierarchy** | Plant → Line → Shift → Hour |
 | **Shifts** | Morning 06:00–14:00 · Evening 14:00–22:00 · Night 22:00–06:00 (plant local time) |
 | **Threshold** | Report only. Below 90% for a full shift is highlighted in the README charts. |
@@ -67,4 +67,5 @@ Every KPI is computed in the Glue job at its **lowest grain** (gold tables) and 
 | Rejected units | Sum of `quantity` for `REJECTED` events |
 | Produced units | Sum of `quantity` for `PRODUCED` events (end of line) |
 | Duplicate | Two records with the same `event_id`. Only the first one counts, everywhere. |
-| Invalid record | Missing field, unknown part or station, or quantity ≤ 0. Goes to `quarantine/` with a reason. |
+| Invalid record | Missing field, unknown event type, unreadable time, quantity ≤ 0, a part code unknown in that plant (any event type), or an unknown station. Goes to `quarantine/` with a reason. |
+| Rates in gold | Never stored. Gold tables keep additive counts; every rate is computed **after** rolling up (a plant's reject rate is not the average of its stations' rates). |

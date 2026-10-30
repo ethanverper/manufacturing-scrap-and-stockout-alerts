@@ -52,7 +52,7 @@
 ## ADR-009: Nightly trigger disabled by default
 - **Context:** a forgotten schedule keeps billing every night.
 - **Decision:** the Glue trigger is created with `enabled = false`, and the demo runs the job on demand (`make kpis`).
-- **Consequences:** in "production" the trigger is turned on with one variable (`enable_schedule = true`).
+- **Consequences:** in "production" the trigger is turned on with one setting (`aws.glue.schedule_enabled: true` in `config/settings.yaml`).
 
 ## ADR-010: Reject-rate alert uses a p-chart control limit, not a fixed 3%
 - **Context:** the first rule (fixed 3%, minimum 20 units) was run against the live session locally. It raised **22 alerts, only 8 of them from the real problem** (the bad Voltex lot). Over the 7-day history it raised 863. Stations handle very different volumes (ASSEMBLY-3 ~60 parts/hour, ASSEMBLY-2 ~200), so with few parts a single reject already reads as "3.2%". Too many false alarms would teach Purchasing and Quality to ignore the emails, including the real ones.
@@ -60,3 +60,15 @@
 - **Result (local test on the same data):** **live session: 7 alerts, all 7 from the bad lot** (before: 22, with 14 false). 7-day history: 66 alerts (before: 863).
 - **Alternatives:** raising the fixed percentage (it misses the bad lot on high-volume stations), or a minimum of rejects only (it still raised 259 alerts over the history).
 - **Consequences:** the baseline p̄ (1.2%) is a setting. In production the nightly Glue job would recompute it per station from the last 30 days, a natural link between the batch and real-time paths.
+
+## ADR-011: The KPI job rebuilds every day on each run (full refresh), by event date
+- **Context:** the end-of-day stock position is a running sum: opening stock plus every movement since. A job that processed only "yesterday" would need yesterday's closing position as state.
+- **Decision:** each run reads all raw events (~53,000 in the demo) and rewrites every table with **dynamic partition overwrite**, so only the dates present are replaced and a re-run gives identical tables. Dates come from the event's own `event_time` (UTC), **not** from the `dt=` folder, because Firehose names folders by arrival time and a scan at 23:59:59 can arrive after midnight. Glue job bookmarks are disabled.
+- **Alternatives:** incremental runs with job bookmarks, carrying the previous day's closing stock forward. That scales better, but adds state that can drift.
+- **Consequences:** simple and idempotent at this size (the job runs in about 3 minutes on 2 workers). At production volume the next step is incremental processing, seeded from the previous day's `gold/stock_coverage`.
+
+## ADR-012: Plain Spark on Glue 5.0, tested locally with the same PySpark
+- **Context:** Glue offers DynamicFrames and a `GlueContext`, but they only exist inside Glue, which makes the code hard to test without paying for runs.
+- **Decision:** the job uses plain Spark DataFrames on **Glue 5.0 (Spark 3.5)**. The transformations live in `src/glue_jobs/transforms.py` as pure functions; `src/glue_jobs/daily_kpis.py` only reads, calls them and writes. Tests and `make kpis-local` run the same code with **PySpark 3.5** on a laptop or in CI.
+- **Alternatives:** DynamicFrames (useful for messy, changing schemas and job bookmarks, neither needed here), or developing directly against Glue (slow and billed per run).
+- **Consequences:** the job is portable to EMR or Databricks unchanged, and every rule is tested before deploy. Local runs need Java 17 for Spark.

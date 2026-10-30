@@ -23,3 +23,10 @@ Decisions that changed because of evidence, while building this project. Each en
 - **Change:** installed the official **native arm64** Terraform from releases.hashicorp.com, **verified its SHA256 checksum**, and re-initialized, which downloaded arm64 providers. Documented in `docs/configuration.md`.
 - **Result:** `terraform validate` ran and immediately caught two real type errors in the configuration (an inconsistent conditional, and subscriber entries with different shapes). Both are fixed.
 - **Takeaway:** when a tool "times out" for no clear reason on Apple Silicon, check `file $(which <tool>)` for the binary's architecture before debugging the code.
+
+## 4. A validation rule written "by event type" let a corrupted scan through
+- **Assumption:** check the part code only on the events that move stock (installs, rejects, deliveries). A finished-unit scan (`PRODUCED`) has no part, so there seemed to be nothing to check.
+- **What the data showed:** the Glue job test that compares the quarantine with the scans the simulator corrupted on purpose failed: **55 corrupted scans, 54 quarantined**. The missing one was a `PRODUCED` scan carrying a made-up part code (`UNKNOWN-PART`). It passed every rule and was **counted as 5 units of production**, inflating throughput for that line and hour.
+- **Change:** the rule is now "if an event carries a part code, the part must exist in that plant", checked on every event type (`src/glue_jobs/transforms.py`, `validate()`). The real-time Lambda ignores `PRODUCED` events for stock and reject rate, so it was not affected.
+- **Result:** the quarantine now matches the corrupted scans exactly (55 of 55), and the job's own reconciliation table proves, for every day, that `raw = curated + duplicates + quarantined` (53,126 = 52,562 + 509 + 55).
+- **Takeaway:** a test that reconciles record counts end to end finds the gaps that rule-by-rule tests don't think to look for. The same principle as reconciling a subledger to the general ledger: if the totals don't tie, something leaked.

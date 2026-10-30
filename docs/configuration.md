@@ -7,12 +7,13 @@ Everything you can change, where it lives, and what to do after changing it. If 
 | Tool | Version | Why | Check |
 |---|---|---|---|
 | Python | ≥ 3.10 | Generator, scripts, tests | `python3 --version` |
+| Java | 17 (Spark 3.5's supported version) | Local Spark for the Glue job tests and `make kpis-local`. Without it those tests are skipped. | `java -version` |
 | Terraform | ≥ 1.6 | Creates the AWS resources | `terraform version` |
 | AWS CLI | v2 | Uploads, streaming helpers, credentials | `aws --version` |
 | AWS credentials | An IAM user or SSO profile allowed to create the services in section 5 | Terraform and the scripts act as you | `aws sts get-caller-identity` |
 
 ```bash
-make install   # Python dependencies (boto3, pyyaml, pytest, ruff, moto)
+make install   # Python dependencies (boto3, pyyaml, pytest, ruff, moto, pyspark 3.5 ≈ 300 MB)
 ```
 
 **Installing Terraform on a Mac with Apple Silicon (M1–M4):** use the native **arm64** build. If Homebrew lives in `/usr/local` (an Intel/Rosetta install), `brew install terraform` installs the Intel build, whose ~700 MB AWS provider fails with *"timeout while waiting for plugin to start"*. Install the official arm64 binary instead and verify its checksum:
@@ -48,7 +49,7 @@ terraform version   # must say: on darwin_arm64
 | `alerts` | `reject_rate_baseline_pct`, `reject_rate_sigma`, `reject_rate_floor_pct`, `reject_rate_min_rejects`, `stock_coverage_threshold_days` | The business wants more or fewer alerts. See `docs/kpi-dictionary.md` and ADR-010 in `docs/decisions.md` |
 | `plant` | plants, lines, station types, batch size, shifts, delivery hour, pallet size | Simulating a different plant layout |
 | `simulation` | `seed`, `history_days`, defect rates, the 3 `incidents`, `noise`, `live_session` | Changing the story in the data, or its volume |
-| `aws` | `kinesis`, `lambda`, `dynamodb`, `firehose`, `glue`, `athena` | Sizing, timeouts, retention (defaults are the cheapest that work) |
+| `aws` | `kinesis`, `lambda`, `dynamodb`, `firehose` (buffer size/interval, `log_retention_days`), `glue` (`glue_version`, workers, `timeout_minutes`, `schedule_cron`, `schedule_enabled`), `athena` | Sizing, timeouts, retention (defaults are the cheapest that work). `schedule_enabled: true` turns the nightly job on (it bills every night). |
 
 ### `config/master_data.yaml`
 
@@ -106,14 +107,27 @@ The Lambda reads only environment variables. Terraform sets them in `infra/terra
 
 If any of them is missing, the Lambda refuses to start (`KeyError` at start-up) rather than alerting with a made-up default.
 
+The Glue job reads only its job arguments. Terraform sets them in `infra/terraform/4_batch.tf` (`default_arguments`); locally, `scripts/kpis_local.py` builds the same list:
+
+| Job argument | Source |
+|---|---|
+| `--input_root`, `--output_root` | `s3://<bucket>` on AWS; `data/generated` and `data/lake-local` locally |
+| `--utc_offset_hours` | `project.plant_utc_offset_hours` |
+| `--shift_start_hours` | `plant.shift_start_hours` (as JSON) |
+| `--coverage_threshold_days` | `alerts.stock_coverage_threshold_days` |
+| `--extra-py-files` | `s3://<bucket>/scripts/glue_libs.zip` (the job's modules, zipped by Terraform) |
+
+Firehose takes `aws.firehose.*` (buffering, log retention) in `infra/terraform/3_landing.tf`. Its S3 prefix `raw/plant_events/dt=…/` is the lake layout, not a setting.
+
 ## 5. Private and generated files (never committed)
 
 | Path | What | Recreate with |
 |---|---|---|
 | `config/subscribers.yaml` | Real email addresses | `cp config/subscribers.example.yaml config/subscribers.yaml` |
-| `data/generated/` | Simulated history, master data CSVs, stock snapshot, live session | `make generate` |
+| `data/generated/` | Simulated history, master data CSVs (parts, plan, stations, opening stock), stock snapshot, live session | `make generate` |
+| `data/lake-local/` | Output of the KPI job run locally (curated, gold, quarantine) | `make kpis-local` |
 | `infra/terraform/.terraform/`, `*.tfstate*` | Terraform's provider cache and record of what it created | `terraform init` / created by `apply` |
-| `infra/terraform/build/` | The Lambda zip | Built automatically by `terraform apply` |
+| `infra/terraform/build/` | The Lambda zip and the Glue modules zip | Built automatically by `terraform apply` |
 
 **Keep `*.tfstate` until you run `make destroy`.** It is how Terraform knows what to delete.
 
@@ -121,12 +135,14 @@ If any of them is missing, the Lambda refuses to start (`KeyError` at start-up) 
 
 | Step | Command | What happens | Cost |
 |---|---|---|---|
-| 1 | `make test` | Unit + simulated-AWS (moto) tests | $0 |
+| 1 | `make test` | Unit + simulated-AWS (moto) + local Spark tests (~4 min on a laptop) | $0 |
 | 2 | `make generate` | 7 days of history + master data into `data/generated/` | $0 |
-| 3 | `make deploy` | Creates the stream, Lambda, tables, topic and subscriptions (+ the bucket). **Confirm the subscription emails.** | Stream ~$0.015/hour from here on |
+| 2b | `make kpis-local` (optional) | Runs the Glue job on that data with a local Spark, into `data/lake-local/` | $0 |
+| 3 | `make deploy` | Creates the stream, Lambda, tables, topic and subscriptions, Firehose, the Glue job (schedule off) and the bucket. **Confirm the subscription emails.** | Stream ~$0.015/hour from here on |
 | 4 | `make seed` | Loads the end-of-history stock into DynamoDB | ~$0 |
 | 5 | `make upload-history` | History and master data to S3 | ~$0 |
-| 6 | `make stream` | ~1,000 live events over ~10 minutes. Alert emails arrive within seconds | ~$0 |
+| 6 | `make stream` | ~1,000 live events over ~10 minutes. Alert emails arrive within seconds; Firehose lands them in `raw/` within ~1 minute | ~$0 |
+| 6b | `make kpis` | Starts the Glue job on everything in `raw/` (history + live). Check it in the Glue console; ~3 minutes | ~$0.05 per run |
 | 7 | `make destroy` then `make leftovers` | Deletes everything, then checks that nothing billable is left | — |
 
 ## 7. Common changes

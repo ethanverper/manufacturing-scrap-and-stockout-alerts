@@ -139,15 +139,16 @@ One topic (`alerts`) with email subscriptions. Messages state the rule, the numb
 - Buffer: 1 MB or 60 s.
 - Errors go to `firehose-errors/`.
 
-### Glue job `daily_kpis.py` (PySpark, Glue 4.0, 2 × G.1X, 10-minute timeout)
-`extract()` → `validate()` → `deduplicate()` → `enrich()` → `build_kpis()` → `load()`:
+### Glue job `daily_kpis.py` (PySpark, Glue 5.0 / Spark 3.5, 2 × G.1X, 10-minute timeout)
+Plain Spark DataFrames, so the same code runs on Glue, in CI and on a laptop (ADR-012). `daily_kpis.py` only reads and writes; every rule is a pure function in `transforms.py`:
 
-1. **Extract:** raw events for the requested dates, plus the reference CSVs.
-2. **Validate:** schema, known part and station, quantity > 0. Invalid rows go to `quarantine/` with a reason column.
-3. **Deduplicate:** one row per `event_id`.
-4. **Enrich:** add unit cost, planned daily usage and planned units from reference data.
-5. **Build KPIs:** one gold table per KPI, at the **lowest grain** of its hierarchy.
-6. **Load:** Parquet, partitioned by `dt`, overwriting only the dates processed (re-runs are idempotent).
+1. **Extract:** all raw events (declared schema, gzipped JSON lines) plus the reference CSVs: parts, stations, plan and **opening stock**.
+2. **Event columns:** UTC timestamp, `dt` (UTC date, taken from the event and **not** from the arrival folder), plant-local date, hour and shift.
+3. **Validate:** required fields per event type, known event type, readable time, quantity > 0, part known in that plant (on every event type), station known. Invalid rows go to `quarantine/` with the first rule they broke.
+4. **Deduplicate:** one row per `event_id` (scanner retries).
+5. **Enrich:** unit cost, planned daily usage and the signed stock movement (the same rule as the Lambda).
+6. **Build KPIs:** one gold table per KPI at the **lowest grain** of its hierarchy, with additive counts only (rates are computed after rolling up).
+7. **Reconcile, then load:** the run fails without writing if `raw ≠ curated + duplicates + quarantined` on any day. Otherwise Parquet, partitioned by `dt`, overwriting only the dates present (ADR-011: full refresh, idempotent).
 
 ### Athena
 - Workgroup with a **1 GB per-query scan limit**, and results expire after 7 days.
@@ -158,16 +159,17 @@ One topic (`alerts`) with email subscriptions. Messages state the rule, the numb
 
 ```
 s3://manufacturing-scrap-and-stockout-alerts-<account>/
-├── reference/            parts.csv · plan.csv · stations.csv           (master data)
-├── raw/plant_events/     dt=YYYY-MM-DD/*.gz                            (Firehose + history, untouched)
-├── quarantine/           dt=YYYY-MM-DD/                                 (invalid records + reason)
+├── reference/            parts/ · plan/ · stations/ · opening_stock/   (master data, one folder per table)
+├── raw/plant_events/     dt=YYYY-MM-DD/*.json.gz                       (Firehose + history, untouched)
+├── quarantine/plant_events/ dt=YYYY-MM-DD/                             (invalid records + quarantine_reason)
 ├── curated/events_clean/ dt=YYYY-MM-DD/*.parquet                        (deduplicated, enriched)
 ├── gold/
-│   ├── reject_rate/        grain: dt · plant · line · station · part · supplier · lot · reason_code
-│   ├── stock_coverage/     grain: dt · plant · part · supplier
-│   ├── throughput/         grain: dt · plant · line · shift · hour
-│   └── scrap_cost/         grain: dt · plant · line · station · part · supplier · reason_code
-├── scripts/              daily_kpis.py
+│   ├── reject_rate/        grain: dt · plant · line · station · part · supplier · lot      (consumed, rejected by cause)
+│   ├── stock_coverage/     grain: dt · plant · part · supplier                               (movements, closing units, days)
+│   ├── throughput/         grain: dt · plant · line · local_date · local_hour (+ shift)      (planned vs produced)
+│   ├── scrap_cost/         grain: dt · plant · line · station · part · supplier · reason_code
+│   └── data_quality/       grain: dt                                                         (raw = curated + duplicates + quarantined)
+├── scripts/              daily_kpis.py · glue_libs.zip                 (the job's code)
 ├── firehose-errors/
 └── athena-results/       (expires after 7 days)
 ```
@@ -186,7 +188,8 @@ src/
   lambdas/realtime_alerts/
     handler.py · parsing.py · rules.py · state.py · notifier.py
   glue_jobs/
-    daily_kpis.py
+    daily_kpis.py         entry point: extract → transform → reconcile → load
+    transforms.py         pure PySpark functions, one per step and per KPI
 infra/terraform/
   0_main.tf · 1_ingestion.tf · 2_realtime.tf · 3_landing.tf · 4_batch.tf · 5_analytics.tf
   variables.tf · outputs.tf
