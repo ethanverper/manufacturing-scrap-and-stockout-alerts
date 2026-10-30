@@ -11,6 +11,7 @@ infra/terraform/terraform.tfvars
 # Generated demo data (recreate with `make generate`)
 data/generated/
 data/lake-local/
+data/charts/
 
 # Local Spark leftovers
 spark-warehouse/

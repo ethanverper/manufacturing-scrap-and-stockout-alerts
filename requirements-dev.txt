@@ -4,3 +4,4 @@ ruff>=0.6
 pyyaml>=6.0
 moto[dynamodb,sns,sqs]>=5.0
 pyspark==3.5.3  # same Spark as Glue 5.0; needs Java 17 (tests/glue_jobs are skipped without it)
+matplotlib>=3.7  # README charts (scripts/make_charts.py)

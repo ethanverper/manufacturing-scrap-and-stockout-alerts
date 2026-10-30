@@ -2,7 +2,7 @@ PROJECT ?= $(shell basename $(CURDIR))  # same as config/settings.yaml -> projec
 TF := terraform -chdir=infra/terraform
 PYTHON ?= python3
 
-.PHONY: help install test lint fmt generate live-dry kpis-local seed deploy upload-history stream kpis destroy leftovers cost
+.PHONY: help install test lint fmt generate live-dry kpis-local charts-local seed deploy upload-history stream kpis charts destroy leftovers cost
 
 help: ## List targets
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
@@ -30,6 +30,9 @@ live-dry: ## Write the live session to data/generated/live_events.jsonl instead 
 kpis-local: ## Run the Glue KPI job on data/generated with a local Spark, into data/lake-local (no AWS)
 	$(PYTHON) -m scripts.kpis_local --input data/generated --output data/lake-local
 
+charts-local: ## Run the sql/ queries on data/lake-local with Spark and draw the charts into data/charts (no AWS)
+	$(PYTHON) -m scripts.make_charts --engine local --lake data/lake-local --out data/charts
+
 seed: ## Load the end-of-history stock into DynamoDB (after deploy, before the live session)
 	$(PYTHON) -m scripts.seed_stock --table $$($(TF) output -raw part_stock_table)
 
@@ -46,6 +49,10 @@ stream: ## Stream the live session to Kinesis (after seed); alerts arrive by ema
 
 kpis: ## Start the Glue KPI job on AWS (~2 DPU x 3 min, about $0.05 a run); prints the run id
 	aws glue start-job-run --job-name $$($(TF) output -raw glue_job_name) --query JobRunId --output text
+
+charts: ## Run the sql/ queries on Athena (after make kpis) and save the README charts into docs/images
+	$(PYTHON) -m scripts.make_charts --engine athena --out docs/images \
+		--workgroup $$($(TF) output -raw athena_workgroup) --database $$($(TF) output -raw athena_database)
 
 destroy: ## Delete everything
 	$(TF) destroy
