@@ -128,3 +128,5 @@ aws:
   athena:
     bytes_scanned_cutoff_per_query: 1073741824  # 1 GB per query, then Athena cancels it
     results_expiration_days: 7
+    projection_days_back: 30          # partition projection covers dt from 30 days ago to tomorrow
+    query_timeout_seconds: 120        # scripts/make_charts.py gives up on a query after this

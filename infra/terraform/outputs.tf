@@ -42,3 +42,12 @@ output "firehose_name" {
 output "glue_job_name" {
   value = aws_glue_job.daily_kpis.name
 }
+
+# Where to run the KPI queries (scripts/make_charts.py and the Athena console)
+output "athena_workgroup" {
+  value = aws_athena_workgroup.analytics.name
+}
+
+output "athena_database" {
+  value = aws_glue_catalog_database.lake.name
+}
