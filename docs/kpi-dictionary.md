@@ -36,7 +36,7 @@ Every KPI is computed in the Glue job at its **lowest grain** (gold tables) and 
 |---|---|
 | **Business definition** | Finished units produced compared with the production plan |
 | **Formula** | `produced_units / planned_units × 100` |
-| **Lowest grain (gold)** | `dt · plant · line · local_date · local_hour` (+ `shift`), with `planned_units` and `produced_units` (`gold/throughput`). Built from the plan, so an hour without production shows 0. |
+| **Lowest grain (gold)** | `dt · plant · line · local_date · local_hour` (+ `shift`), with `planned_units` and `produced_units` (`gold/throughput`). Built from the plan, so an hour without production shows 0, but only for hours in which the plant sent data: a gap with no scans at all is "no data", not "zero produced" (lesson 7). |
 | **Hierarchy** | Plant → Line → Shift → Hour |
 | **Shifts** | Morning 06:00–14:00 · Evening 14:00–22:00 · Night 22:00–06:00 (plant local time) |
 | **Threshold** | Report only. Below 90% for a full shift is highlighted in the README charts. |

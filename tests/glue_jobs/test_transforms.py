@@ -171,6 +171,37 @@ def test_line_3_night_shift_is_behind_plan(tables) -> None:
     assert all(value > 0.97 for key, value in pct.items() if key != ("LINE-3", "NIGHT"))
 
 
+def test_hours_without_any_data_are_not_counted_as_zero_production(spark, reference_tables, job_args) -> None:
+    """A plant-wide gap in the data is "no data", not "zero produced"; a silent line is a real zero.
+
+    Reproduces what the real deploy showed (lesson 7): between the history and the live session
+    there were 6 hours with no scans, and they read as a 10% shortfall on every night shift.
+    """
+
+    def produced(event_id: str, time: str, line: str) -> dict:
+        return {**VALID_EVENT, "event_id": event_id, "event_time": time, "event_type": "PRODUCED", "line": line,
+                "station": "END-OF-LINE", "part": None, "supplier": None, "lot": None, "quantity": 20}  # fmt: skip
+
+    # 15:00 UTC: LINE-1 and LINE-2 report, LINE-3 is silent. 16:00 UTC: no scan at all. 17:00 UTC: LINE-1 only.
+    events = [
+        produced("P1", "2026-10-27T15:10:00Z", "LINE-1"),
+        produced("P2", "2026-10-27T15:20:00Z", "LINE-2"),
+        produced("P3", "2026-10-27T17:05:00Z", "LINE-1"),
+    ]
+    curated = transforms.add_event_columns(
+        events_frame(spark, events), job_args.utc_offset_hours, job_args.shift_start_hours
+    )
+    rows = transforms.build_throughput(
+        curated, reference_tables["plan"], job_args.utc_offset_hours, job_args.shift_start_hours
+    ).filter(F.col("plant") == "PLANT-MTY")
+    kept = {(row["local_hour"], row["line"]): row["produced_units"] for row in rows.collect()}
+
+    # Local hours (UTC-6): 9 and 11 had data, 10 had none and is left out entirely
+    assert {hour for hour, _line in kept} == {9, 11}
+    assert kept[(9, "LINE-3")] == 0.0  # silent while its plant was scanning: a real zero
+    assert kept[(9, "LINE-1")] == 20.0
+
+
 def test_connector_shortage_shows_in_coverage(tables) -> None:
     """CONNECTOR-C4 in Monterrey ends the history with less coverage than in San Luis Potosí."""
     coverage = tables["gold/stock_coverage"]

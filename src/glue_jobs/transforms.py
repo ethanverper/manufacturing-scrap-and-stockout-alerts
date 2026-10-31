@@ -271,8 +271,14 @@ def build_throughput(
 
     Grain: dt · plant · line · local_date · local_hour (plus the shift).
     It starts from the PLAN and not from the events, so an hour in which a line produced nothing
-    shows up as 0 units instead of disappearing. Only hours inside the period the data covers are
-    kept (the plan of the live day runs to midnight, the live session stops at 09:00).
+    shows up as 0 units instead of disappearing.
+
+    Only the hours in which the PLANT sent data are compared with the plan. An hour with no scan
+    at all from a plant means "no data" (a scanner outage, or the gap between the history and the
+    live session), not "zero produced". The first version used the whole period between the first
+    and the last event, and the real deploy showed every night shift ~10% behind because of a 6-hour
+    gap with no data (docs/lessons-learned.md, lesson 7). A line that stays silent while the rest
+    of its plant keeps scanning still counts as a real zero.
 
     Args:
         curated: Curated events.
@@ -295,12 +301,9 @@ def build_throughput(
         .agg(F.sum("quantity").alias("produced_units"))
     )
 
-    # The period the data covers: from the first to the last hour with any event
-    covered = curated.agg(
-        F.min(F.date_trunc("hour", "event_ts")).alias("first_hour"),
-        F.max(F.date_trunc("hour", "event_ts")).alias("last_hour"),
-    )
-    hours = hours.crossJoin(covered).filter(F.col("hour_start_utc").between(F.col("first_hour"), F.col("last_hour")))
+    # Hours in which each plant sent at least one scan of any kind: the hours we have data for
+    reporting = curated.select("plant", F.date_trunc("hour", "event_ts").alias("hour_start_utc")).dropDuplicates()
+    hours = hours.join(reporting, ["plant", "hour_start_utc"], "inner")
 
     # Plan left-joined with production: missing production is a real zero
     throughput = hours.join(produced, ["plant", "line", "hour_start_utc"], "left").fillna(0.0, ["produced_units"])
