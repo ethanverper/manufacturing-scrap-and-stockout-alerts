@@ -1,0 +1,37 @@
+$ scripts/leftovers.sh manufacturing-scrap-and-stockout-alerts
+# captured 2026-10-31T00:21:31Z
+
+== 1. Resources still tagged Project=manufacturing-scrap-and-stockout-alerts
+  ✓ tagged resources: none
+
+== 2. Resources whose name starts with manufacturing-scrap-and-stockout-alerts
+  ✓ S3 buckets: none
+  ✓ Kinesis streams: none
+  ✓ Firehose streams: none
+  ✓ Lambda functions: none
+  ✓ DynamoDB tables: none
+  ✓ SNS topics: none
+  ✓ SQS queues: none
+  ✓ Glue jobs: none
+  ✓ Glue triggers: none
+  ✓ Glue databases: none
+  ✓ Athena workgroups: none
+  ✓ IAM roles: none
+  ✓ Log groups: none
+
+== 3. Services that bill by the hour (any project, this region)
+  ✓ Kinesis streams (any): none
+  ✓ Firehose streams (any): none
+  ✓ Flink applications: none
+  ✓ Glue triggers (activated): none
+  ✓ Glue jobs running: none
+  ✓ Redshift Serverless: none
+  ✓ EMR Serverless apps: none
+  ✓ NAT gateways: none
+  ✓ Interface VPC endpoints: none
+  ✓ SageMaker endpoints: none
+  ✓ OpenSearch Serverless: none
+
+== Note: log groups Glue created on its own (not a failure; remove with make clean-glue-logs)
+
+✅ Nothing billable left.

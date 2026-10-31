@@ -1,0 +1,9 @@
+$ aws kinesis describe-stream-summary --stream-name manufacturing-scrap-and-stockout-alerts-events --query StreamDescriptionSummary.{status:StreamStatus,shards:OpenShardCount,retention_hours:RetentionPeriodHours,encryption:EncryptionType,mode:StreamModeDetails.StreamMode}
+# captured 2026-10-30T23:40:12Z
+{
+    "status": "ACTIVE",
+    "shards": 1,
+    "retention_hours": 24,
+    "encryption": "KMS",
+    "mode": "PROVISIONED"
+}

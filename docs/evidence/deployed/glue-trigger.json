@@ -1,0 +1,6 @@
+$ aws glue get-trigger --name manufacturing-scrap-and-stockout-alerts-nightly --query Trigger.{schedule:Schedule,state:State}
+# captured 2026-10-30T23:40:21Z
+{
+    "schedule": "cron(0 7 * * ? *)",
+    "state": "CREATED"
+}

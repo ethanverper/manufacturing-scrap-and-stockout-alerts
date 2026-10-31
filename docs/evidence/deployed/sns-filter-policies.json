@@ -1,0 +1,3 @@
+$ terraform -chdir=infra/terraform output -json alert_subscriptions
+# captured 2026-10-30T23:40:18Z
+{"<email>":"{\"kind\":[\"LOW_STOCK\"]}","<email>":"{\"kind\":[\"HIGH_REJECT_RATE\"],\"plant\":[\"PLANT-MTY\"]}"}

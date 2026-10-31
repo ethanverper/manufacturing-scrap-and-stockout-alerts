@@ -1,0 +1,3 @@
+$ bash -c terraform -chdir=infra/terraform state list; echo "resources in state: $(terraform -chdir=infra/terraform state list 2>/dev/null | wc -l | tr -d ' ')"
+# captured 2026-10-31T00:21:28Z
+resources in state: 0

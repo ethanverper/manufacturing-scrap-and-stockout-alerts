@@ -1,0 +1,10 @@
+$ aws glue get-job-runs --job-name manufacturing-scrap-and-stockout-alerts-daily-kpis --max-items 1 --query JobRuns[0].{state:JobRunState,started:StartedOn,seconds:ExecutionTime,workers:NumberOfWorkers,worker_type:WorkerType,error:ErrorMessage}
+# captured 2026-10-31T00:14:46Z
+{
+    "state": "SUCCEEDED",
+    "started": "2026-10-30T19:08:45.211000-05:00",
+    "seconds": 208,
+    "workers": 2,
+    "worker_type": "G.1X",
+    "error": null
+}

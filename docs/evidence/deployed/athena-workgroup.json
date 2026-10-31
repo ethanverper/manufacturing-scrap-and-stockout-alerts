@@ -1,0 +1,7 @@
+$ aws athena get-work-group --work-group manufacturing-scrap-and-stockout-alerts --query WorkGroup.Configuration.{scan_limit_bytes:BytesScannedCutoffPerQuery,enforced:EnforceWorkGroupConfiguration,results:ResultConfiguration.OutputLocation}
+# captured 2026-10-30T23:40:23Z
+{
+    "scan_limit_bytes": 1073741824,
+    "enforced": true,
+    "results": "s3://manufacturing-scrap-and-stockout-alerts-<account-id>/athena-results/"
+}

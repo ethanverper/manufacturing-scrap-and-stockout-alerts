@@ -1,0 +1,22 @@
+$ aws s3 ls s3://manufacturing-scrap-and-stockout-alerts-<account-id>/raw/plant_events/ --recursive --summarize
+# captured 2026-10-30T23:59:45Z
+2026-10-30 18:40:32      44050 raw/plant_events/dt=2026-10-23/history.json.gz
+2026-10-30 18:40:32      59614 raw/plant_events/dt=2026-10-24/history.json.gz
+2026-10-30 18:40:31      59352 raw/plant_events/dt=2026-10-25/history.json.gz
+2026-10-30 18:40:32      59070 raw/plant_events/dt=2026-10-26/history.json.gz
+2026-10-30 18:40:32      59146 raw/plant_events/dt=2026-10-27/history.json.gz
+2026-10-30 18:40:32      58945 raw/plant_events/dt=2026-10-28/history.json.gz
+2026-10-30 18:40:32      60147 raw/plant_events/dt=2026-10-29/history.json.gz
+2026-10-30 18:40:32      15664 raw/plant_events/dt=2026-10-30/history.json.gz
+2026-10-30 18:51:09       1635 raw/plant_events/dt=2026-10-30/manufacturing-scrap-and-stockout-alerts-landing-1-2026-10-30-23-50-08-a474cfef-4b72-492d-ae8a-d241803e4a3c.json.gz
+2026-10-30 18:52:13       1680 raw/plant_events/dt=2026-10-30/manufacturing-scrap-and-stockout-alerts-landing-1-2026-10-30-23-51-06-1c14c88c-f35d-4812-bbbb-a0d6da0aa1f9.json.gz
+2026-10-30 18:53:08       1768 raw/plant_events/dt=2026-10-30/manufacturing-scrap-and-stockout-alerts-landing-1-2026-10-30-23-52-06-7eb874c4-9296-42b5-ac48-9f5cd8f9b3dc.json.gz
+2026-10-30 18:54:08       1682 raw/plant_events/dt=2026-10-30/manufacturing-scrap-and-stockout-alerts-landing-1-2026-10-30-23-53-06-32f3dc8d-0b5c-49b7-be12-56961faf2333.json.gz
+2026-10-30 18:55:08       1759 raw/plant_events/dt=2026-10-30/manufacturing-scrap-and-stockout-alerts-landing-1-2026-10-30-23-54-02-b5a419e1-90c1-467f-aeb2-4574f45d200b.json.gz
+2026-10-30 18:56:09       1776 raw/plant_events/dt=2026-10-30/manufacturing-scrap-and-stockout-alerts-landing-1-2026-10-30-23-55-01-82c24167-db6f-4f68-aa91-c10fecf96742.json.gz
+2026-10-30 18:57:04       1636 raw/plant_events/dt=2026-10-30/manufacturing-scrap-and-stockout-alerts-landing-1-2026-10-30-23-56-01-ec15e73f-a495-4ab3-a082-75793ed0bea7.json.gz
+2026-10-30 18:58:04       1663 raw/plant_events/dt=2026-10-30/manufacturing-scrap-and-stockout-alerts-landing-1-2026-10-30-23-57-01-1080f0e6-7ca6-42a9-b0a3-b8349d630734.json.gz
+2026-10-30 18:59:04       1398 raw/plant_events/dt=2026-10-30/manufacturing-scrap-and-stockout-alerts-landing-1-2026-10-30-23-57-57-2bfd5a15-d7d7-4f1b-97f1-102400bf4896.json.gz
+
+Total Objects: 17
+   Total Size: 430985

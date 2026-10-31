@@ -1,0 +1,13 @@
+$ aws lambda list-event-source-mappings --function-name manufacturing-scrap-and-stockout-alerts-realtime-alerts --query EventSourceMappings[].{state:State,batch_size:BatchSize,bisect_on_error:BisectBatchOnFunctionError,retries:MaximumRetryAttempts,partial_failures:FunctionResponseTypes}
+# captured 2026-10-30T23:40:13Z
+[
+    {
+        "state": "Enabled",
+        "batch_size": 100,
+        "bisect_on_error": true,
+        "retries": 3,
+        "partial_failures": [
+            "ReportBatchItemFailures"
+        ]
+    }
+]

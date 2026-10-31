@@ -1,0 +1,12 @@
+$ aws firehose describe-delivery-stream --delivery-stream-name manufacturing-scrap-and-stockout-alerts-landing --query DeliveryStreamDescription.{status:DeliveryStreamStatus,source:Source.KinesisStreamSourceDescription.KinesisStreamARN,prefix:Destinations[0].ExtendedS3DestinationDescription.Prefix,compression:Destinations[0].ExtendedS3DestinationDescription.CompressionFormat,buffering:Destinations[0].ExtendedS3DestinationDescription.BufferingHints}
+# captured 2026-10-30T23:40:18Z
+{
+    "status": "ACTIVE",
+    "source": "arn:aws:kinesis:us-east-1:<account-id>:stream/manufacturing-scrap-and-stockout-alerts-events",
+    "prefix": "raw/plant_events/dt=!{timestamp:yyyy-MM-dd}/",
+    "compression": "GZIP",
+    "buffering": {
+        "SizeInMBs": 1,
+        "IntervalInSeconds": 60
+    }
+}

@@ -1,0 +1,46 @@
+$ terraform -chdir=infra/terraform state list
+# captured 2026-10-30T23:40:10Z
+data.archive_file.glue_libs
+data.archive_file.realtime_lambda
+data.aws_caller_identity.current
+aws_athena_workgroup.analytics
+aws_cloudwatch_log_group.firehose
+aws_cloudwatch_log_group.realtime_lambda
+aws_cloudwatch_log_stream.firehose_s3
+aws_dynamodb_table.events_seen
+aws_dynamodb_table.part_stock
+aws_dynamodb_table.station_hourly
+aws_glue_catalog_database.lake
+aws_glue_catalog_table.lake["curated_events_clean"]
+aws_glue_catalog_table.lake["gold_data_quality"]
+aws_glue_catalog_table.lake["gold_reject_rate"]
+aws_glue_catalog_table.lake["gold_scrap_cost"]
+aws_glue_catalog_table.lake["gold_stock_coverage"]
+aws_glue_catalog_table.lake["gold_throughput"]
+aws_glue_catalog_table.lake["quarantine_plant_events"]
+aws_glue_catalog_table.lake["raw_plant_events"]
+aws_glue_job.daily_kpis
+aws_glue_trigger.nightly
+aws_iam_role.firehose
+aws_iam_role.glue
+aws_iam_role.realtime_lambda
+aws_iam_role_policy.firehose
+aws_iam_role_policy.glue_lake
+aws_iam_role_policy.realtime_access
+aws_iam_role_policy_attachment.glue_service
+aws_iam_role_policy_attachment.realtime_kinesis
+aws_kinesis_firehose_delivery_stream.landing
+aws_kinesis_stream.plant_events
+aws_lambda_event_source_mapping.stream_to_realtime
+aws_lambda_function.realtime_alerts
+aws_s3_bucket.lake
+aws_s3_bucket_lifecycle_configuration.lake
+aws_s3_bucket_policy.tls_only
+aws_s3_bucket_public_access_block.lake
+aws_s3_bucket_server_side_encryption_configuration.lake
+aws_s3_object.glue_libs
+aws_s3_object.glue_script
+aws_sns_topic.alerts
+aws_sns_topic_subscription.email["0-Purchasing"]
+aws_sns_topic_subscription.email["1-Quality Monterrey"]
+aws_sqs_queue.realtime_dlq

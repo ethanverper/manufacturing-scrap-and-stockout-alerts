@@ -1,0 +1,4 @@
+$ bash -c for group in /aws-glue/jobs/output /aws-glue/jobs/error; do aws logs filter-log-events --log-group-name $group --filter-pattern '"Daily KPIs written"' --query 'events[-1].message' --output text 2>/dev/null; done | grep -v '^None$'
+# captured 2026-10-31T00:14:47Z
+{"level": "INFO", "logger": "__main__", "message": "Daily KPIs written", "output_root": "s3://manufacturing-scrap-and-stockout-alerts-<account-id>", "raw_records": 54137, "curated_records": 53541, "duplicate_records": 537, "quarantined_records": 59, "all_days_balanced": true, "rows_per_table": {"curated/events_clean": 53541, "quarantine/plant_events": 59, "gold/reject_rate": 825, "gold/scrap_cost": 972, "gold/throughput": 1062, "gold/stock_coverage": 176, "gold/data_quality": 8}}
+

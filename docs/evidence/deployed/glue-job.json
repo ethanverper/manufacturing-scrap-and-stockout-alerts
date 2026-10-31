@@ -1,0 +1,9 @@
+$ aws glue get-job --job-name manufacturing-scrap-and-stockout-alerts-daily-kpis --query Job.{glue_version:GlueVersion,worker_type:WorkerType,workers:NumberOfWorkers,timeout_min:Timeout,max_retries:MaxRetries}
+# captured 2026-10-30T23:40:20Z
+{
+    "glue_version": "5.0",
+    "worker_type": "G.1X",
+    "workers": 2,
+    "timeout_min": 10,
+    "max_retries": 0
+}

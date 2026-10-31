@@ -1,0 +1,24 @@
+$ bash -c aws dynamodb scan --table-name manufacturing-scrap-and-stockout-alerts-part-stock --query 'Items[].[plant_part.S,on_hand.N,planned_daily_usage.N]' --output text | awk '{printf "%-28s on_hand=%8s  coverage_days=%.3f\n", $1, $2, $2/$3}' | sort -t= -k3 -n
+# captured 2026-10-30T23:59:43Z
+PLANT-MTY#CONNECTOR-C4       on_hand=    5148  coverage_days=0.894
+PLANT-SLP#CABLE-C9           on_hand=   12606  coverage_days=2.918
+PLANT-SLP#BRACKET-B5         on_hand=    8411  coverage_days=2.920
+PLANT-MTY#CABLE-C9           on_hand=   12622  coverage_days=2.922
+PLANT-MTY#BRACKET-B5         on_hand=    8434  coverage_days=2.928
+PLANT-SLP#CONNECTOR-C4       on_hand=   16867  coverage_days=2.928
+PLANT-MTY#SEAL-S2            on_hand=    8442  coverage_days=2.931
+PLANT-MTY#SENSOR-S3          on_hand=    8442  coverage_days=2.931
+PLANT-SLP#HARNESS-H2         on_hand=    4230  coverage_days=2.938
+PLANT-SLP#SENSOR-S3          on_hand=    8473  coverage_days=2.942
+PLANT-SLP#SEAL-S2            on_hand=    8491  coverage_days=2.948
+PLANT-SLP#SCREW-KIT-K8       on_hand=    4249  coverage_days=2.951
+PLANT-SLP#HOUSING-X1         on_hand=    4254  coverage_days=2.954
+PLANT-MTY#HARNESS-H2         on_hand=    4265  coverage_days=2.962
+PLANT-MTY#SCREW-KIT-K8       on_hand=    4282  coverage_days=2.974
+PLANT-MTY#HOUSING-X1         on_hand=    4285  coverage_days=2.976
+PLANT-MTY#BATTERY-A12        on_hand=    4424  coverage_days=3.072
+PLANT-SLP#MOTOR-M7           on_hand=    4585  coverage_days=3.184
+PLANT-SLP#CONTROLLER-K1      on_hand=    4586  coverage_days=3.185
+PLANT-SLP#BATTERY-A12        on_hand=    4589  coverage_days=3.187
+PLANT-MTY#MOTOR-M7           on_hand=    4601  coverage_days=3.195
+PLANT-MTY#CONTROLLER-K1      on_hand=    4619  coverage_days=3.208

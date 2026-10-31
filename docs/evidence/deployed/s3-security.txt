@@ -1,0 +1,4 @@
+$ bash -c aws s3api get-public-access-block --bucket manufacturing-scrap-and-stockout-alerts-<account-id> --output text; aws s3api get-bucket-encryption --bucket manufacturing-scrap-and-stockout-alerts-<account-id> --query 'ServerSideEncryptionConfiguration.Rules[].ApplyServerSideEncryptionByDefault' --output text
+# captured 2026-10-30T23:40:25Z
+PUBLICACCESSBLOCKCONFIGURATION	True	True	True	True
+AES256

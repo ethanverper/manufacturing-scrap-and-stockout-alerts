@@ -1,0 +1,3 @@
+$ aws glue get-tables --database-name manufacturing_scrap_and_stockout_alerts --query TableList[].Name --output text
+# captured 2026-10-30T23:40:22Z
+curated_events_clean	gold_data_quality	gold_reject_rate	gold_scrap_cost	gold_stock_coverage	gold_throughput	quarantine_plant_events	raw_plant_events

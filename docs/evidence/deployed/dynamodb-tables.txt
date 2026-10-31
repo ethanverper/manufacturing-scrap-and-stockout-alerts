@@ -1,0 +1,5 @@
+$ bash -c for t in events-seen part-stock station-hourly; do aws dynamodb describe-table --table-name manufacturing-scrap-and-stockout-alerts-$t --query 'Table.[TableName,TableStatus,BillingModeSummary.BillingMode]' --output text; done
+# captured 2026-10-30T23:40:14Z
+manufacturing-scrap-and-stockout-alerts-events-seen	ACTIVE	PAY_PER_REQUEST
+manufacturing-scrap-and-stockout-alerts-part-stock	ACTIVE	PAY_PER_REQUEST
+manufacturing-scrap-and-stockout-alerts-station-hourly	ACTIVE	PAY_PER_REQUEST

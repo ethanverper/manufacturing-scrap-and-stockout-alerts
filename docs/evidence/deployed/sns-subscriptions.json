@@ -1,0 +1,14 @@
+$ aws sns list-subscriptions-by-topic --topic-arn arn:aws:sns:us-east-1:<account-id>:manufacturing-scrap-and-stockout-alerts-alerts --query Subscriptions[].{endpoint:Endpoint,protocol:Protocol,status:SubscriptionArn}
+# captured 2026-10-30T23:40:17Z
+[
+    {
+        "endpoint": "<email>",
+        "protocol": "email",
+        "status": "PendingConfirmation"
+    },
+    {
+        "endpoint": "<email>",
+        "protocol": "email",
+        "status": "PendingConfirmation"
+    }
+]

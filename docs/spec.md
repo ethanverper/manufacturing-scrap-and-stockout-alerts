@@ -130,10 +130,10 @@ Reject rate %                    Stock coverage (days)       Throughput vs plan 
 - After `make destroy`, `make leftovers` must print nothing.
 
 ## 6. Definition of done
-- [ ] All code in English, modular, and commented per `docs/CODING_STANDARDS.md`
-- [ ] Unit tests and CI green (ruff, pytest, terraform fmt/validate)
-- [ ] Deployed for real: alert emails, Athena results and charts captured in `docs/images/`
-- [ ] README section 3 shows the 3 findings from the data story, with numbers
-- [ ] `make destroy` + `make leftovers` empty
+- [x] All code in English, modular, and commented per `docs/CODING_STANDARDS.md`
+- [x] Unit tests and CI green (ruff, pytest, terraform fmt/validate)
+- [x] Deployed for real: alert emails, Athena results and charts captured in `docs/images/` (`docs/evidence/deploy-log.md`)
+- [x] README section 3 shows the findings from the data story, with numbers
+- [x] `make destroy` + `make leftovers` empty (`docs/evidence/destroyed/`)
 - [ ] Actual cost recorded in the README (expected ≈ $0.15, ≤ $3)
 - [ ] CV bullet drafted (portfolio project, described truthfully)

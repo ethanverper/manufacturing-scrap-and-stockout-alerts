@@ -37,3 +37,20 @@ Decisions that changed because of evidence, while building this project. Each en
 - **Change:** the local runner turns partition type inference off (`spark.sql.sources.partitionColumnTypeInference.enabled = false`), so `dt` is text in both engines. The queries also avoid functions whose meaning differs between Trino and Spark (`GROUPING()`) and derive the hierarchy level with `CASE WHEN <column> IS NULL` (ADR-013).
 - **Result:** the same six `.sql` files run unchanged on both engines. `tests/glue_jobs/test_sql.py` checks that ROLLUP subtotals add up and that the story reads correctly, before any Athena query is paid for.
 - **Takeaway:** a local stand-in is only useful if it is strict about the same contract (names, types, partitions) as production. Otherwise it gives false confidence.
+
+## 6. Least-privilege IAM met a file system detail that only exists in AWS
+- **Assumption:** the Glue role needed to write only inside `curated/*`, `gold/*` and `quarantine/*`. Every local test passed, because Spark on a laptop writes to disk with no IAM at all.
+- **What happened:** the first real Glue run read and processed all 54,137 records, then failed after 3 minutes with `AccessDenied` on `s3:PutObject` for `curated_$folder$`. Glue's S3 file system writes an empty "folder marker" object **next to** each top-level output folder, outside the prefixes the policy allowed.
+- **Change:** the policy also allows the three markers (`curated_$folder$`, `gold_$folder$`, `quarantine_$folder$`). It is still least privilege: no wildcard on the bucket (`infra/terraform/4_batch.tf`).
+- **Result:** the second run succeeded in 3 min 28 s. The design limited the damage of the first failure:
+  - the job writes only after the reconciliation passes, so nothing half-written reached the lake;
+  - `max_retries = 0`, so the failure was not retried automatically and billed again.
+- **Takeaway:** least-privilege policies have to be verified against the real service. Local tests prove the logic; only a real run proves the permissions. Budget one cheap real run for exactly that.
+
+## 7. "No data" is not "zero": a gap in the data read as a production shortfall
+- **Assumption:** throughput is compared with the plan for every planned hour between the first and the last event in the data.
+- **What the real run showed:** every night shift came out ~10% behind plan (90.3%), and LINE-3 at 80.4%. Locally, with history only, every shift but LINE-3's night was at 100%. Reproducing the real data locally (history + live session) gave the same wrong numbers. Cause: the history ends at 23:59 and the live session starts at 06:00. The **6 hours in between had no scans at all**, and the rule counted them as "planned, 0 produced".
+- **Why it matters:** in a real plant the same happens when a scanner or the network goes down. The report would blame the night shift for an IT outage.
+- **Change:** a planned hour is compared only if the **plant** sent at least one scan of any kind in that hour. A line that stays silent while the rest of its plant keeps scanning is still a real zero (`build_throughput` in `src/glue_jobs/transforms.py`). A regression test reproduces both cases.
+- **Result:** on the same data, every shift is back at 100% except LINE-3's night (89.1%), the planted incident. Plant total: 98.8% instead of 95.5%. The before and after charts are both kept in `docs/images/`.
+- **Takeaway:** an aggregate must distinguish "nothing happened" from "we don't know what happened". It is the same reason a data quality check should flag missing data instead of silently treating it as zero.

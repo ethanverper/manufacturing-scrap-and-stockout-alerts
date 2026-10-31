@@ -1,0 +1,3 @@
+$ aws sqs get-queue-attributes --queue-url https://sqs.us-east-1.amazonaws.com/<account-id>/manufacturing-scrap-and-stockout-alerts-realtime-dlq --attribute-names ApproximateNumberOfMessages --query Attributes.ApproximateNumberOfMessages --output text
+# captured 2026-10-30T23:59:40Z
+0

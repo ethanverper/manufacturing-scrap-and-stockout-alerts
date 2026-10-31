@@ -1,0 +1,5 @@
+$ bash -c for m in Invocations Errors Throttles; do echo -n "$m: "; aws cloudwatch get-metric-statistics --namespace AWS/Lambda --metric-name $m --dimensions Name=FunctionName,Value=manufacturing-scrap-and-stockout-alerts-realtime-alerts --start-time $(date -u -v-2H +%Y-%m-%dT%H:%M:%SZ) --end-time $(date -u +%Y-%m-%dT%H:%M:%SZ) --period 7200 --statistics Sum --query 'Datapoints[0].Sum' --output text; done
+# captured 2026-10-30T23:59:35Z
+Invocations: 104.0
+Errors: 0.0
+Throttles: 0.0

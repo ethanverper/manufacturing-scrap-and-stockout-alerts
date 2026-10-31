@@ -12,6 +12,8 @@ infra/terraform/terraform.tfvars
 data/generated/
 data/lake-local/
 data/charts/
+data/screenshots/
+data/repro*/
 
 # Local Spark leftovers
 spark-warehouse/

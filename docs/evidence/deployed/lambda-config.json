@@ -1,0 +1,20 @@
+$ aws lambda get-function-configuration --function-name manufacturing-scrap-and-stockout-alerts-realtime-alerts --query {runtime:Runtime,memory_mb:MemorySize,timeout_s:Timeout,state:State,environment:Environment.Variables}
+# captured 2026-10-30T23:40:12Z
+{
+    "runtime": "python3.12",
+    "memory_mb": 256,
+    "timeout_s": 30,
+    "state": "Active",
+    "environment": {
+        "REJECT_RATE_MIN_REJECTS": "4",
+        "PART_STOCK_TABLE": "manufacturing-scrap-and-stockout-alerts-part-stock",
+        "STOCK_COVERAGE_THRESHOLD_DAYS": "1",
+        "EVENTS_SEEN_TTL_DAYS": "2",
+        "STATION_HOURLY_TABLE": "manufacturing-scrap-and-stockout-alerts-station-hourly",
+        "REJECT_RATE_BASELINE_PCT": "1.2",
+        "EVENTS_SEEN_TABLE": "manufacturing-scrap-and-stockout-alerts-events-seen",
+        "REJECT_RATE_FLOOR_PCT": "3",
+        "ALERT_TOPIC_ARN": "arn:aws:sns:us-east-1:<account-id>:manufacturing-scrap-and-stockout-alerts-alerts",
+        "REJECT_RATE_SIGMA": "3"
+    }
+}
