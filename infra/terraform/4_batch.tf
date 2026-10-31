@@ -102,6 +102,9 @@ resource "aws_iam_role_policy" "glue_lake" {
       },
       {
         # Write the outputs. Delete is needed to overwrite a date partition on a re-run.
+        # The "<layer>_$folder$" objects are empty folder markers that Glue's S3 file system writes
+        # next to each top-level output folder; without them the job fails with AccessDenied
+        # (found on the first real run, docs/lessons-learned.md lesson 6).
         Sid    = "WriteOutputs"
         Effect = "Allow"
         Action = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
@@ -109,6 +112,9 @@ resource "aws_iam_role_policy" "glue_lake" {
           "${aws_s3_bucket.lake.arn}/curated/*",
           "${aws_s3_bucket.lake.arn}/gold/*",
           "${aws_s3_bucket.lake.arn}/quarantine/*",
+          "${aws_s3_bucket.lake.arn}/curated_$folder$",
+          "${aws_s3_bucket.lake.arn}/gold_$folder$",
+          "${aws_s3_bucket.lake.arn}/quarantine_$folder$",
         ]
       },
     ]
