@@ -19,14 +19,14 @@ if [[ ! -f "$MARKER" ]]; then
 fi
 STARTED_MS="$(cat "$MARKER")"
 
-# Glue log groups created after the deploy started
-GROUPS=$(aws logs describe-log-groups --region "$REGION" --log-group-name-prefix /aws-glue \
+# Glue log groups created after the deploy started (not named GROUPS: bash reserves that name)
+LOG_GROUPS=$(aws logs describe-log-groups --region "$REGION" --log-group-name-prefix /aws-glue \
   --query "logGroups[?creationTime >= \`$STARTED_MS\`].logGroupName" --output text)
 
 # Delete each one, saying what was deleted
-for group in $GROUPS; do
+for group in $LOG_GROUPS; do
   aws logs delete-log-group --region "$REGION" --log-group-name "$group"
   echo "deleted $group"
 done
-[[ -z "$GROUPS" ]] && echo "No Glue log groups created during this deploy."
+[[ -z "$LOG_GROUPS" ]] && echo "No Glue log groups created during this deploy."
 exit 0
