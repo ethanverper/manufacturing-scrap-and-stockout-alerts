@@ -62,6 +62,14 @@ More charts: [throughput vs plan](docs/images/throughput_vs_plan.png) · [scrap 
 | Teardown | `41 destroyed`, empty Terraform state, `make leftovers` → **✅ Nothing billable left.** |
 | Evidence | [deploy log](docs/evidence/deploy-log.md) · [CLI output per phase](docs/evidence/) · [console screenshots](docs/images/console/) |
 
+**Screenshots from the real run** (cropped so no account details appear):
+
+| A real alert, seconds after the scans | The batch job: failed, fixed, succeeded | One ROLLUP query, every level |
+|---|---|---|
+| ![Alert email](docs/images/console/email-reject-rate-alert.png) | ![Glue runs](docs/images/console/console-glue-runs.png) | ![Athena ROLLUP](docs/images/console/console-athena-rollup-results.png) |
+
+All 22 screenshots, explained step by step: **[docs/project-story.md](docs/project-story.md)** · raw files: [docs/images/console/](docs/images/console/)
+
 ## 4. Architecture
 
 ```mermaid
