@@ -18,7 +18,7 @@ A streaming + batch data pipeline on AWS that tells a plant **where it is losing
 | 4 | Terraform: Kinesis, Lambda, DynamoDB, SNS with per-person filtered subscriptions | ✅ Done |
 | 5 | Firehose landing to S3 + Glue (PySpark) daily KPIs: validation with quarantine, deduplication, one gold table per KPI, record reconciliation | ✅ Done |
 | 6 | Athena tables (partition projection, 1 GB scan cap), six KPI queries with `GROUP BY ROLLUP`, charts from the results (same SQL tested locally on Spark) | ✅ Done |
-| 7 | Real deploy with evidence, two fixes found by it, teardown verified ([deploy log](docs/evidence/deploy-log.md)). Actual cost from Cost Explorer pending (it lags ~24 h). | ✅ Done |
+| 7 | Real deploy with evidence, two fixes found by it, teardown verified, **actual cost $0.12** ([deploy log](docs/evidence/deploy-log.md)) | ✅ Done |
 
 ## 1. The business problem
 
@@ -60,6 +60,7 @@ More charts: [throughput vs plan](docs/images/throughput_vs_plan.png) · [scrap 
 | Real-time path | 1,011 live scans, **8 email alerts** (exactly the ones the tests predicted, 0 false), 104 Lambda invocations, **0 errors**, empty dead-letter queue |
 | Batch path | Glue run succeeded in 3 min 28 s. **54,137 raw = 53,541 curated + 537 duplicates + 59 quarantined.** Six Athena queries scanned 43 KB in total. |
 | Teardown | `41 destroyed`, empty Terraform state, `make leftovers` → **✅ Nothing billable left.** |
+| **Actual cost** | **$0.12** from Cost Explorer (estimate ≈ $0.15, hard cap $3). Glue was 83% of it; Kinesis, the only hourly service, cost $0.01. [Breakdown](docs/evidence/deploy-log.md#5-actual-cost) |
 | Evidence | [deploy log](docs/evidence/deploy-log.md) · [CLI output per phase](docs/evidence/) · [console screenshots](docs/images/console/) |
 
 **Screenshots from the real run** (cropped so no account details appear):
@@ -109,7 +110,7 @@ make kpis-local             # run the Glue (PySpark) KPI job on it with a local 
 make charts-local           # run the sql/ KPI queries on the result and draw the charts
 ```
 
-**On AWS, from scratch** (≈ $0.15, about 45 minutes, everything deleted at the end):
+**On AWS, from scratch** (the real run cost $0.12 and took 42 minutes; everything is deleted at the end):
 1. Get an AWS account. Turn on MFA for the root user and create a budget alert in Billing → Budgets.
 2. Create a working identity: IAM Identity Center (`aws configure sso`, then `aws sso login`), or an IAM user with an access key (`aws configure`). Check it with `aws sts get-caller-identity`.
 3. Install the AWS CLI v2, Terraform ≥ 1.6 (native arm64 on Apple Silicon), Python ≥ 3.10 and Java 17.

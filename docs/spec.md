@@ -135,5 +135,5 @@ Reject rate %                    Stock coverage (days)       Throughput vs plan 
 - [x] Deployed for real: alert emails, Athena results and charts captured in `docs/images/` (`docs/evidence/deploy-log.md`)
 - [x] README section 3 shows the findings from the data story, with numbers
 - [x] `make destroy` + `make leftovers` empty (`docs/evidence/destroyed/`)
-- [ ] Actual cost recorded in the README (expected ≈ $0.15, ≤ $3)
+- [x] Actual cost recorded in the README: **$0.12** (expected ≈ $0.15, ≤ $3)
 - [ ] CV bullet drafted (portfolio project, described truthfully)
