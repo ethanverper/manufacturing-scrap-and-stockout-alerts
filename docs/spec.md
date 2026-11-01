@@ -136,4 +136,4 @@ Reject rate %                    Stock coverage (days)       Throughput vs plan 
 - [x] README section 3 shows the findings from the data story, with numbers
 - [x] `make destroy` + `make leftovers` empty (`docs/evidence/destroyed/`)
 - [x] Actual cost recorded in the README: **$0.12** (expected ≈ $0.15, ≤ $3)
-- [ ] CV bullet drafted (portfolio project, described truthfully)
+- [x] CV bullet drafted (portfolio project, described truthfully; kept outside the repo)
