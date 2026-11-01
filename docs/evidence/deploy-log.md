@@ -4,7 +4,7 @@ The real deploy of this project to AWS: what was created, what was checked at ea
 
 - **Date:** 2026-10-30 (UTC evening) · **Region:** us-east-1
 - **Billing window:** 23:38:56 → 00:20:42 UTC, **41 min 46 s** (cap: 2 h)
-- **Estimated cost:** ≈ $0.15 (`docs/spec.md`, section 5) · **Actual cost:** see section 5
+- **Estimated cost:** ≈ $0.15 (`docs/spec.md`, section 5) · **Actual cost: $0.12** (section 5)
 - **Evidence:**
   - CLI output in `docs/evidence/<phase>/`, with the account id and emails replaced by placeholders;
   - console screenshots in `docs/images/console/`, cropped and redacted;
@@ -77,16 +77,24 @@ The same six SQL files were run on the same data with local Spark. They returned
 
 ## 5. Actual cost
 
-_To be filled from `make cost-daily` once Cost Explorer has the data (it lags up to 24 h)._
+From Cost Explorer (`make cost-daily`), read on 2026-10-31. The account spends ~$0 otherwise, so this is the project's cost. Provisional until the last day settles; re-checked on 2026-11-02.
 
-Expected:
+| Service | 2026-10-30 | 2026-10-31 | Total (USD) | Expected |
+|---|---|---|---|---|
+| AWS Glue (2 runs: the failed one and the successful one) | | 0.0966 | **0.0966** | ~0.10 |
+| Amazon Kinesis Data Streams (1 shard, 42 min) | 0.0053 | 0.0050 | **0.0103** | ~0.015 |
+| Amazon S3 | 0.0003 | 0.0051 | **0.0054** | < 0.01 |
+| Amazon DynamoDB | 0.0038 | | **0.0038** | ~0.02 |
+| Amazon Athena (6 queries, 43 KB scanned) | | 0.0004 | **0.0004** | < 0.01 |
+| Amazon Data Firehose | 0.0001 | | **0.0001** | ~0.00 |
+| Lambda, SNS, SQS, CloudWatch | | | 0.00 (free tier) | ~0.00 |
+| **Total** | | | **$0.1167** | **≈ $0.15** |
 
-| Service | Usage | Expected (USD) |
-|---|---|---|
-| Glue | 2 runs × 2 DPU × ~3 min (0.116 DPU-hours on the successful run) | ~$0.10 |
-| Kinesis Data Streams | 1 shard, 42 min (billed per shard-hour) | ~$0.015 |
-| DynamoDB, S3, Firehose, Lambda, SNS, Athena, CloudWatch | small requests, 43 KB scanned, < 1 MB of logs | < $0.01 |
-| **Total** | | **≈ $0.12** |
+Not included: $0.02 for two Cost Explorer API calls made while checking the cost ($0.01 each).
+
+Takeaways:
+- **Glue is 83% of the bill.** The failed run cost about as much as the successful one, which is why `max_retries = 0` matters: an automatic retry would have doubled the waste.
+- **Kinesis, the only service billed by the hour, cost one cent**, because the deploy window was 42 minutes.
 
 ## 6. Teardown proof
 
@@ -97,4 +105,4 @@ Expected:
   - 13 resource types by name;
   - 11 services that bill by the hour.
 - Glue's own log groups: deleted with `make clean-glue-logs`.
-- Cost Explorer two days later: _to be confirmed (no charges expected after 2026-10-31)_.
+- Cost Explorer: charges only on 2026-10-30 and 2026-10-31 (the deploy crossed midnight UTC). None expected after; re-checked on 2026-11-02.
