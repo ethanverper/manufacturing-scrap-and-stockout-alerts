@@ -77,7 +77,7 @@ The same six SQL files were run on the same data with local Spark. They returned
 
 ## 5. Actual cost
 
-From Cost Explorer (`make cost-daily`), read on 2026-10-31. The account spends ~$0 otherwise, so this is the project's cost. Provisional until the last day settles; re-checked on 2026-11-02.
+From Cost Explorer (`make cost-daily`), read on 2026-10-31 and confirmed on 2026-11-02 (final). The account spends ~$0 otherwise, so this is the project's cost.
 
 | Service | 2026-10-30 | 2026-10-31 | Total (USD) | Expected |
 |---|---|---|---|---|
@@ -105,4 +105,4 @@ Takeaways:
   - 13 resource types by name;
   - 11 services that bill by the hour.
 - Glue's own log groups: deleted with `make clean-glue-logs`.
-- Cost Explorer: charges only on 2026-10-30 and 2026-10-31 (the deploy crossed midnight UTC). None expected after; re-checked on 2026-11-02.
+- Cost Explorer, re-checked on 2026-11-02: charges only on 2026-10-30 and 2026-10-31 (the deploy crossed midnight UTC). **No project charges since** (the only later item is $0.01 for the Cost Explorer query itself).
