@@ -6,6 +6,8 @@ A streaming + batch data pipeline on AWS that tells a plant **where it is losing
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue) ![Terraform](https://img.shields.io/badge/IaC-Terraform-7B42BC) ![AWS](https://img.shields.io/badge/AWS-Kinesis%20·%20Lambda%20·%20DynamoDB%20·%20SNS%20·%20Firehose%20·%20Glue%20·%20Athena-FF9900)
 
 > ✅ **Deployed for real on AWS, then destroyed.** The pipeline ran with 41 resources for 42 minutes. Every step is documented with redacted CLI output and console screenshots, and every resource was verified deleted. The whole build, level by level, is in [docs/project-story.md](docs/project-story.md).
+>
+> 📸 **[See the evidence: console screenshots in process order, the deploy log, and the raw CLI output →](docs/evidence/README.md)**
 
 ## Progress
 
