@@ -75,6 +75,10 @@ All 22 screenshots, explained step by step: **[docs/project-story.md](docs/proje
 
 ## 4. Architecture
 
+![AWS architecture diagram drawn with the official AWS icons](docs/images/architecture-aws.png)
+
+<sub>Drawn in Lucidchart with the official AWS 2024 icon set. The Mermaid version below is the same flow as text, kept next to the code so it changes with it.</sub>
+
 ```mermaid
 flowchart LR
     SC[Plant scanners] --> KDS[(Kinesis Data Streams)]

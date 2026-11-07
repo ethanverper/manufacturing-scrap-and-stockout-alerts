@@ -2,6 +2,10 @@
 
 ## 1. The big picture
 
+![AWS architecture diagram drawn with the official AWS icons](images/architecture-aws.png)
+
+<sub>Drawn in Lucidchart with the official AWS 2024 icon set. The Mermaid version below is the same flow as text, kept next to the code so it changes with it.</sub>
+
 Three speeds, one source of events:
 
 | Speed | Question it answers | Path |
